@@ -42,6 +42,7 @@ uint8_t inind = 0;
 //utility functions
 uint8_t volts2pwm(float voltage);
 uint16_t volts2bsint(float voltage);
+float bsint2volts(uint16_t integer);
 uint16_t output2pwm(uint32_t output);
 uint16_t averagedread();
 void updateparams(char* string);
@@ -55,12 +56,14 @@ void setup() {
 	Serial.println("Serial Active");
 #endif
 
+	//set the reference voltage
 	if (REFERENCE_VOLTAGE == 1.1)
 	{
 		//could also use EXTERNAL and use an external reference voltage
 		analogReference(INTERNAL);	//sets reference voltage to 1.1
 	}
-	
+
+	//set limits
 	minPWM = volts2pwm(0.5);		//don't output less than .5 volts
 	maxPWM = volts2pwm(1.3);		//don't output more than 1.3 volts
 	setpoint = volts2bsint(.05);	//want to read .05 volts on the ADC
@@ -121,6 +124,11 @@ uint16_t volts2bsint(float voltage)
 	return (uint16_t)(voltage*(pow(2,ADC_BITS) - 1)/REFERENCE_VOLTAGE) << BITSHIFT_BITS;
 }
 
+float bsint2volts(uint16_t integer)
+{
+	return (integer*REFERENCE_VOLTAGE/(pow(2,BITSHIFT_BITS + ADC_BITS)));
+}
+
 uint16_t averagedread()
 {
 	uint32_t total = 0;
@@ -173,6 +181,12 @@ void updateparams(char* string)
 			Serial.print("kd=");
 			Serial.println(kd);
 		}
+		else if(!strcmp(string, "sp"))
+		{
+			setpoint = atoi(&(string[3]));
+			Serial.print("setpoint=");
+			Serial.print(setpoint);
+		}
 	}
 	else
 	{
@@ -194,6 +208,13 @@ void updateparams(char* string)
 			{
 				Serial.print("kd=");
 				Serial.println(kd);
+			}
+			else if(!strcmp(string, "sp"))
+			{
+				Serial.print("setpoint=");
+				Serial.print(bsint2volts(setpoint));
+				Serial.print("V, ");
+				Serial.println(setpoint);
 			}
 		}
 	}
