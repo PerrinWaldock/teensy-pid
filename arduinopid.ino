@@ -1,3 +1,5 @@
+#include <string.h>
+
 #define OUTPUT_PIN 5	//PWM output on pin #5 because it has fastest PWM cycle
 #define INPUT_PIN A0	//PWM input on analog 0 because it is an analog pin
 
@@ -10,7 +12,11 @@
 #define OUTPUT_BITSHIFT 2		//divide output by 2^OUTPUT_BITSHIFT
 
 #define MAX_ITERM 1000			//maximum value of the integral term (to stop integral wind-up)
-#define READ_AVERAGES 8			//each analog 
+#define READ_AVERAGES 8			//analog inputs get read 8 times
+
+#define SERIAL_BAUD 9600
+#define INSTRING_LENGTH 80
+
 
 //note: could be better to use this: https://playground.arduino.cc/Code/PIDLibraryAdaptiveTuningsExample/
 
@@ -28,14 +34,26 @@ uint32_t iterm = 0;
 //last measured value
 uint16_t lasterror = 0;
 
+#ifdef SERIAL_BAUD
+char instring[INSTRING_LENGTH];
+uint8_t inind = 0;
+#endif
+
 //utility functions
 uint8_t volts2pwm(float voltage);
 uint16_t volts2bsint(float voltage);
 uint16_t output2pwm(uint32_t output);
 uint16_t averagedread();
+void updateparams(char* string);
+
 
 void setup() {
 	// put your setup code here, to run once:
+
+#ifdef SERIAL_BAUD
+	Serial.begin(SERIAL_BAUD);
+	Serial.println("Serial Active");
+#endif
 
 	if (REFERENCE_VOLTAGE == 1.1)
 	{
@@ -46,10 +64,38 @@ void setup() {
 	minPWM = volts2pwm(0.5);		//don't output less than .5 volts
 	maxPWM = volts2pwm(1.3);		//don't output more than 1.3 volts
 	setpoint = volts2bsint(.05);	//want to read .05 volts on the ADC
-	
+
+#ifdef SERIAL_BAUD
+	Serial.println("PID Active");
+#endif
+
 }
 
 void loop() {
+
+#ifdef SERIAL_BAUD
+	while (Serial.available() > 0)
+	{
+		instring[inind] = Serial.read();
+		//Serial.print(instring[inind], HEX);
+		if(inind >= INSTRING_LENGTH)
+		{
+			Serial.println("Incoming String Too Long");
+			inind = 0;
+		}
+		else if (instring[inind] == '\n')
+		{
+			instring[inind] = "\0";
+			updateparams(instring);
+			inind = 0;
+		}
+		else
+		{
+			inind++;
+		}
+	}
+#endif
+	
 	// put your main code here, to run repeatedly:
 	uint16_t measure = averagedread();		//measure from ADC
 	int16_t error = setpoint - measure;
@@ -100,4 +146,55 @@ uint16_t output2pwm(uint32_t output)
 
 	return pwm;
 		
+}
+
+void updateparams(char* string)
+{
+	char* peql = strchr(string, '=');	//find address of equals sign in string
+	if (peql)	//if equal sign exists
+	{
+		*peql = '\0';	//replace with end string character
+		
+		if(!strcmp(string, "kp"))
+		{
+			kp = atoi(&(string[3]));
+			Serial.print("kp=");
+			Serial.println(kp);
+		}
+		else if(!strcmp(string, "ki"))
+		{
+			ki = atoi(&(string[3]));
+			Serial.print("ki=");
+			Serial.println(ki);
+		}
+		else if(!strcmp(string, "kd"))
+		{
+			kd = atoi(&(string[3]));
+			Serial.print("kd=");
+			Serial.println(kd);
+		}
+	}
+	else
+	{
+		peql = strchr(string, '?');	//find address of '?' string
+		if (peql)	//if equal sign exists
+		{
+			*peql = '\0';	//replace with end string character
+			if(!strcmp(string, "kp"))
+			{
+				Serial.print("kp=");
+				Serial.println(kp);
+			}
+			else if(!strcmp(string, "ki"))
+			{
+				Serial.print("ki=");
+				Serial.println(ki);
+			}
+			else if(!strcmp(string, "kd"))
+			{
+				Serial.print("kd=");
+				Serial.println(kd);
+			}
+		}
+	}
 }
