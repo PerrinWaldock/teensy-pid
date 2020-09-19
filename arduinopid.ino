@@ -185,7 +185,7 @@ void updateparams(char* string)
 		{
 			setpoint = atoi(&(string[3]));
 			Serial.print("setpoint=");
-			Serial.print(setpoint);
+			Serial.println(setpoint);
 		}
 	}
 	else
