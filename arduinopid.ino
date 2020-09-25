@@ -21,7 +21,7 @@
 #define PWM_BITS 16
 #define ADC_BITS 12
 #define SIGNED_OUTPUT false		//output only goes from 0 to +
-#define SAMPLE_PERIOD_US 50		//sets the PID loop frequency (too low and the code doesn't work
+#define SAMPLE_PERIOD_US 50		//sets the PID loop frequency (too low and the code doesn't work)
 
 const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 
@@ -214,6 +214,14 @@ void updateparams(char* string)
 		{
 			setpoint = atof(&(string[3]));
 			Serial.print("setpoint=");
+			Serial.println(setpoint);
+		}
+		else if(!strcmp(string, "sv"))
+		{
+			setpoint = volts2int(atof(&(string[3])), ADC_BITS);
+			Serial.print("setpoint=");
+			Serial.print(int2volts(setpoint, ADC_BITS));
+			Serial.print("V, ");
 			Serial.println(setpoint);
 		}
 #ifdef SERIAL_BAUD
