@@ -7,6 +7,8 @@
  * https://www.pjrc.com/teensy/schematic.html
  * 
  * Most of the PID feedback control code is from here: https://github.com/mike-matera/FastPID/blob/master/src/FastPID.cpp
+ * 
+ * look here for code to speed up ADC: https://github.com/pedvide/ADC/blob/master/examples/analogContinuousRead/analogContinuousRead.ino
  */
 
 
@@ -14,14 +16,16 @@
 
 //defines the input and output pins 
 #define PIN_INPUT     A0
-#define PIN_OUTPUT    A14
+#define PIN_OUTPUT    A21//A14
 
 //sets the max PWM and ADC resolutions for the Teensy 3.2
 #define REFERENCE_VOLTAGE 3.3	//can change to 1.2 volts if we want
-#define PWM_BITS 16
+#define PWM_BITS 15
 #define ADC_BITS 12
 #define SIGNED_OUTPUT false		//output only goes from 0 to +
-#define SAMPLE_PERIOD_US 50		//sets the PID loop frequency (too low and the code doesn't work)
+#define SAMPLE_PERIOD_US 200//50		//sets the PID loop frequency (too low and the code doesn't work)
+#define NEGATIVE_OUTPUT //comment out for positive control
+const uint16_t MAX_OUTPUT = (1 << PWM_BITS) - 1;
 
 const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 
@@ -40,7 +44,7 @@ const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 #define TIME_FEEDBACK_LOOP
 
 //pid feedback control parameters
-float kp=10, ki=200, kd=0;
+float kp=5, ki=100, kd=0;
 uint16_t setpoint = volts2int(0.7, ADC_BITS); //default setpoint
 
 //things that only need to be defined if feedback control is active
@@ -54,6 +58,7 @@ uint16_t setpoint = volts2int(0.7, ADC_BITS); //default setpoint
 #endif
 
 volatile bool pidcalc = true; //flag saying to perform feedback control calc
+bool pidactive = true;			//flag saying "pid control is active"
 
 IntervalTimer pidTimer;	//used for timing the pid feedback loop
 IntervalTimer readTimer; //used for timing the serial read code
@@ -118,14 +123,21 @@ void loop()
 	if(pidcalc)
 	{
 #ifdef TIME_FEEDBACK_LOOP
-		ts = micros();
+	ts = micros();
 #endif
+	if(pidactive)
+	{
 		feedback = analogRead(PIN_INPUT);
-		out = myPID.step(2*setpoint, feedback); //not sure why but you have to multiply the setpoint by 2
-		analogWrite(PIN_OUTPUT, out);
-		pidcalc = false;
+#ifdef NEGATIVE_OUTPUT
+		out = MAX_OUTPUT - myPID.step(setpoint, feedback);
+#else
+		out = myPID.step(setpoint, feedback);
+#endif
+	}
+	analogWrite(PIN_OUTPUT, out);
+	pidcalc = false;
 #ifdef TIME_FEEDBACK_LOOP
-		tss = micros();
+	tss = micros();
 #endif
 	}
 #ifdef SERIAL_BAUD
@@ -224,6 +236,23 @@ void updateparams(char* string)
 			Serial.print("V, ");
 			Serial.println(setpoint);
 		}
+		else if(!strcmp(string, "pa"))
+		{
+			pidactive = atoi(&(string[3]));
+			Serial.print("pidactive=");
+			Serial.println(pidactive);
+		}
+		else if(!strcmp(string, "ov"))
+		{
+			pidactive = false;
+			out = volts2int(atof(&(string[3])), PWM_BITS);
+			Serial.print("pidactive=");
+			Serial.println(pidactive);
+			Serial.print("output=");
+			Serial.print(int2volts(out, PWM_BITS));
+			Serial.print("V, ");
+			Serial.println(out);
+		}
 #ifdef SERIAL_BAUD
 		else if(!strcmp(string, "po"))
 		{
@@ -267,6 +296,18 @@ void updateparams(char* string)
 				Serial.print(int2volts(setpoint, ADC_BITS));
 				Serial.print("V, ");
 				Serial.println(setpoint);
+			}
+			else if(!strcmp(string, "ov"))
+			{
+				Serial.print("output=");
+				Serial.print(int2volts(out, PWM_BITS));
+				Serial.print("V, ");
+				Serial.println(out);
+			}
+			else if(!strcmp(string, "pa"))
+			{
+				Serial.print("pidactive=");
+				Serial.println(pidactive);	
 			}
 			else
 			{
