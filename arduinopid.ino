@@ -32,7 +32,7 @@
 #define SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
 #define NEGATIVE_OUTPUT //comment out for positive control
 
-const uint16_t MAX_OUTPUT = (1 << PWM_BITS) - 1;
+const uint16_t MAX_OUTPUT = (1 << PWM_BITS) - 1; //maximum output value for the DAC (integer)
 const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 
 #define DEFAULT_SETPOINT 1.1
@@ -42,7 +42,7 @@ const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 #define volts2int(x, b) ((1 << b) - 1)*x/REFERENCE_VOLTAGE
 
 //sets communication parameters
-#define SERIAL_BAUD 9600
+#define SERIAL_BAUD 9600 //comment this out to turn off serial control
 #define INSTRING_LENGTH 80
 
 //if defined, then the microcontroller times how long it takes to do a loop
@@ -77,8 +77,9 @@ IntervalTimer readTimer; //used for timing the serial read code
 
 FastPID myPID(kp, ki, kd, SAMPLE_RATE_HZ, PWM_BITS, SIGNED_OUTPUT); //feedback control object
 
-
+#ifdef SERIAL_BAUD
 void updateparams(char* string);  //updates parameters given string
+#endif
 void setpidcalc();          //sets pid calc flag (ISR)
 void setreadserial();       //sets read serial flag (ISR)
 
@@ -152,6 +153,7 @@ void loop()
 
 			#if ANALOG_INPUT
 				setpoint = analogRead(PIN_REFERENCE);
+				out = myPID.step(setpoint, feedback);			
 			#endif
 			#if DIGITAL_INPUT
 				if (digitalRead(PIN_REFERENCE) == LOW)
@@ -162,7 +164,6 @@ void loop()
 				{
 					out = myPID.step(setpoint, feedback);			
 				}
-			#else
 			#endif
 			#ifdef NEGATIVE_OUTPUT
 				out = MAX_OUTPUT - out;
@@ -230,6 +231,7 @@ void loop()
 	#endif
 }
 
+#ifdef SERIAL_BAUD
 //updates pid feedback parameters given a string from the user
 //note: this could be much more elegantly implemented, but it's done this way for speed
 void updateparams(char* string)
@@ -403,6 +405,7 @@ void updateparams(char* string)
 		}
 	}
 }
+#endif
 
 //ISRs that set flags
 void setpidcalc()
