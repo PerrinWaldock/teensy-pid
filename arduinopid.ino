@@ -10,6 +10,7 @@
  * 
  * look here for code to speed up ADC: https://github.com/pedvide/ADC/blob/master/examples/analogContinuousRead/analogContinuousRead.ino
  * 
+ * If using digital control code, use pyserial to adjust setpoint: https://anaconda.org/anaconda/pyserial
  */
 
 
