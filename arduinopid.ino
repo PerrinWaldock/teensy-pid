@@ -49,7 +49,7 @@ const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 #define TIME_FEEDBACK_LOOP true
 
 //pid feedback control parameters
-float kp=0.1, ki=40000, kd=0;
+float kp=0.1, ki=45000, kd=0;
 //this is also the setpoint if digital input is low
 uint16_t setpoint = volts2int(DEFAULT_SETPOINT, ADC_BITS); //default setpoint (voltage it reads)
 #ifdef DIGITAL_INPUT
