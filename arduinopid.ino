@@ -18,10 +18,10 @@
 
 //defines the input and output pins 
 #define PIN_INPUT     A0
-#define PIN_OUTPUT    A21//A14
-#define PIN_REFERENCE A14 //TODO connect
+#define PIN_OUTPUT    A21
+#define PIN_REFERENCE A14
 
-#define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is low, and setpointhigh if PIN_REFERENCE is high
+#define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low
 #define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE
 
 //sets the max PWM and ADC resolutions for the Teensy 3.2
@@ -54,7 +54,7 @@ float kp=0.1, ki=45000, kd=0;
 //this is also the setpoint if digital input is low
 uint16_t setpoint = volts2int(DEFAULT_SETPOINT, ADC_BITS); //default setpoint (voltage it reads)
 #ifdef DIGITAL_INPUT
-uint16_t setpointhigh = 0;	//default high digital setpoint
+uint16_t setpointlow = 0;	//default low digital setpoint
 #endif
 uint8_t readaverages = 2;	//number of times to average the input (hardware)
 
@@ -87,7 +87,10 @@ void setup()
 	//sets pin states
 	pinMode(PIN_INPUT, INPUT);
 	pinMode(PIN_OUTPUT, OUTPUT);
-#if ANALOG_INPUT || DIGITAL_INPUT
+#if DIGITAL_INPUT
+	pinMode(PIN_REFERENCE, INPUT_PULLUP);
+#endif
+#if ANALOG_INPUT
 	pinMode(PIN_REFERENCE, INPUT);
 #endif
 
@@ -151,9 +154,9 @@ void loop()
 				setpoint = analogRead(PIN_REFERENCE);
 			#endif
 			#if DIGITAL_INPUT
-				if (digitalRead(PIN_REFERENCE) == HIGH)
+				if (digitalRead(PIN_REFERENCE) == LOW)
 				{
-					out = myPID.step(setpointhigh, feedback);			
+					out = myPID.step(setpointlow, feedback);			
 				}
 				else
 				{
@@ -270,19 +273,19 @@ void updateparams(char* string)
 			Serial.println(setpoint);
 		}
 #if DIGITAL_INPUT
-		else if(!strcmp(string, "hp"))
+		else if(!strcmp(string, "lp"))
 		{
-			setpointhigh = atof(&(string[3]));
-			Serial.print("high setpoint=");
-			Serial.println(setpointhigh);
+			setpointlow = atof(&(string[3]));
+			Serial.print("low setpoint=");
+			Serial.println(setpointlow);
 		}
-		else if(!strcmp(string, "hv"))
+		else if(!strcmp(string, "lv"))
 		{
-			setpointhigh = volts2int(atof(&(string[3])), ADC_BITS);
-			Serial.print("high setpoint=");
-			Serial.print(int2volts(setpointhigh, ADC_BITS));
+			setpointlow = volts2int(atof(&(string[3])), ADC_BITS);
+			Serial.print("low setpoint=");
+			Serial.print(int2volts(setpointlow, ADC_BITS));
 			Serial.print("V, ");
-			Serial.println(setpointhigh);
+			Serial.println(setpointlow);
 		}
 #endif
 		else if(!strcmp(string, "pa"))
@@ -352,12 +355,12 @@ void updateparams(char* string)
 				Serial.println(setpoint);
 			}
 			#if DIGITAL_INPUT
-				else if(!strcmp(string, "hp") || !strcmp(string, "hv"))
+				else if(!strcmp(string, "lp") || !strcmp(string, "lv"))
 				{
-					Serial.print("high setpoint=");
-					Serial.print(int2volts(setpointhigh, ADC_BITS));
+					Serial.print("low setpoint=");
+					Serial.print(int2volts(setpointlow, ADC_BITS));
 					Serial.print("V, ");
-					Serial.println(setpointhigh);
+					Serial.println(setpointlow);
 				}
 			#endif
 			else if(!strcmp(string, "ov"))
@@ -390,8 +393,8 @@ void updateparams(char* string)
 			Serial.println("sp for the integer value of the default setpoint (int)");
 			Serial.println("sv for the voltage (in V) of the default setpoint (float)");
 #if DIGITAL_INPUT
-			Serial.println("hp for the integer value of the digital high setpoint (int)");
-			Serial.println("hv for the voltage (in V) of the digital high setpoint (float)");
+			Serial.println("lp for the integer value of the digital high setpoint (int)");
+			Serial.println("lv for the voltage (in V) of the digital high setpoint (float)");
 #endif
 			Serial.println("ov for the voltage (in V) of the output (float). Setting it disables PID control.");
 			Serial.println("ra for the number of read averages (int)");
