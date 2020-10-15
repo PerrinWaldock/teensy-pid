@@ -30,7 +30,8 @@
 #define ADC_BITS 12
 #define SIGNED_OUTPUT false   //output only goes from 0 to +
 #define SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
-#define NEGATIVE_OUTPUT //comment out for positive control
+#define NEGATIVE_OUTPUT true //comment out for positive control
+#define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
 const uint16_t MAX_OUTPUT = (1 << PWM_BITS) - 1; //maximum output value for the DAC (integer)
 const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
@@ -40,6 +41,8 @@ const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 //conversion macros
 #define int2volts(x, b) REFERENCE_VOLTAGE*x/((1 << b) - 1)
 #define volts2int(x, b) ((1 << b) - 1)*x/REFERENCE_VOLTAGE
+#define flipoutput(x) MAX_OUTPUT - x
+#define bound(x, a, b) x < a ? a : x > b ? b : x
 
 //sets communication parameters
 #define SERIAL_BAUD 9600 //comment this out to turn off serial control
@@ -53,10 +56,17 @@ const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 float kp=0.1, ki=45000, kd=0;
 //this is also the setpoint if digital input is low
 uint16_t setpoint = volts2int(DEFAULT_SETPOINT, ADC_BITS); //default setpoint (voltage it reads)
-#ifdef DIGITAL_INPUT
+#if DIGITAL_INPUT
 uint16_t setpointlow = 0;	//default low digital setpoint
 #endif
-uint8_t readaverages = 2;	//number of times to average the input (hardware)
+uint8_t readaverages = 4;	//number of times to average the input (hardware)
+
+#if LIMITED_SETPOINT
+uint16_t minsetpoint = int2volts(0,ADC_BITS);
+uint16_t maxsetpoint = int2volts(3.3,ADC_BITS);
+uint16_t minoutput = 0;
+uint16_t maxoutput = MAX_OUTPUT;
+#endif
 
 
 //things that only need to be defined if feedback control is active
@@ -149,24 +159,46 @@ void loop()
 		#endif
 		if(pidactive) //only run if pid is active
 		{
-			feedback = analogRead(PIN_INPUT);
-
+			feedback = analogRead(PIN_INPUT); //gets feedback
+			
+			uint16_t sp;
 			#if ANALOG_INPUT
-				setpoint = analogRead(PIN_REFERENCE);
-				out = myPID.step(setpoint, feedback);			
+				sp = analogRead(PIN_REFERENCE);			
 			#endif
 			#if DIGITAL_INPUT
 				if (digitalRead(PIN_REFERENCE) == LOW)
 				{
-					out = myPID.step(setpointlow, feedback);			
+					sp = setpointlow;			
 				}
 				else
 				{
-					out = myPID.step(setpoint, feedback);			
+					sp = setpoint;			
 				}
 			#endif
-			#ifdef NEGATIVE_OUTPUT
-				out = MAX_OUTPUT - out;
+			#if !DIGITAL_INPUT || !ANALOG_INPUT
+				sp = setpoint;
+			#endif
+			#if LIMITED_SETPOINT
+				if(setpoint < minsetpoint)
+				{
+					out = minoutput;
+				}
+				else if(setpoint > maxsetpoint)
+				{
+					out = maxoutput;
+				}
+				else
+				{
+					out = myPID.step(sp, feedback); //only runs the pid calculation if you are inside the specified setpoint range	
+					out = bound(out, min(minoutput, maxoutput), max(minoutput, maxoutput));
+				}
+			#else
+				out = myPID.step(sp, feedback); //no endpoints to worry about
+			#endif
+			
+
+			#if NEGATIVE_OUTPUT
+				out = flipoutput(out);
 			#endif
 		}
 		analogWrite(PIN_OUTPUT, out); //still write output
@@ -290,6 +322,52 @@ void updateparams(char* string)
 			Serial.println(setpointlow);
 		}
 #endif
+#if LIMITED_SETPOINT
+		else if(!strcmp(string, "lo"))
+		{
+			#if NEGATIVE_OUTPUT
+				minoutput = flipoutput(volts2int(atof(&(string[3])), PWM_BITS));
+			#else
+				minoutput = volts2int(atof(&(string[3])), PWM_BITS);
+			#endif
+			Serial.print("Output Limits: ");
+			Serial.print(int2volts(minoutput, ADC_BITS));
+			Serial.print("V, ");
+			Serial.print(int2volts(maxoutput, ADC_BITS));
+			Serial.print("V");
+		}
+		else if(!strcmp(string, "ho"))
+		{
+			#if NEGATIVE_OUTPUT
+				maxoutput = flipoutput(volts2int(atof(&(string[3])), PWM_BITS));
+			#else
+				maxoutput = volts2int(atof(&(string[3])), PWM_BITS);
+			#endif			
+			Serial.print("Output Limits: ");
+			Serial.print(int2volts(minoutput, ADC_BITS));
+			Serial.print("V, ");
+			Serial.print(int2volts(maxoutput, ADC_BITS));
+			Serial.print("V");
+		}
+		else if(!strcmp(string, "ls"))
+		{
+			minsetpoint = volts2int(atof(&(string[3])), PWM_BITS);
+			Serial.print("Setpoint Limits: ");
+			Serial.print(int2volts(minsetpoint, ADC_BITS));
+			Serial.print("V, ");
+			Serial.print(int2volts(maxsetpoint, ADC_BITS));
+			Serial.print("V");
+		}
+		else if(!strcmp(string, "hs"))
+		{
+			minsetpoint = volts2int(atof(&(string[3])), PWM_BITS);
+			Serial.print("Setpoint Limits: ");
+			Serial.print(int2volts(minsetpoint, ADC_BITS));
+			Serial.print("V, ");
+			Serial.print(int2volts(maxsetpoint, ADC_BITS));
+			Serial.print("V");
+		}
+#endif
 		else if(!strcmp(string, "pa"))
 		{
 			pidactive = atoi(&(string[3]));
@@ -365,6 +443,24 @@ void updateparams(char* string)
 					Serial.println(setpointlow);
 				}
 			#endif
+			#if LIMITED_SETPOINT
+				else if(!strcmp(string, "lo") || !strcmp(string, "ho"))
+				{
+					Serial.print("Output Limits: ");
+					Serial.print(int2volts(minoutput, ADC_BITS));
+					Serial.print("V, ");
+					Serial.print(int2volts(maxoutput, ADC_BITS));
+					Serial.print("V");
+				}
+				else if(!strcmp(string, "ls") || !strcmp(string, "hs"))
+				{
+					Serial.print("Setpoint Limits: ");
+					Serial.print(int2volts(minsetpoint, ADC_BITS));
+					Serial.print("V, ");
+					Serial.print(int2volts(maxsetpoint, ADC_BITS));
+					Serial.print("V");
+				}
+			#endif
 			else if(!strcmp(string, "ov"))
 			{
 				Serial.print("output=");
@@ -395,13 +491,22 @@ void updateparams(char* string)
 			Serial.println("sp for the integer value of the default setpoint (int)");
 			Serial.println("sv for the voltage (in V) of the default setpoint (float)");
 #if DIGITAL_INPUT
-			Serial.println("lp for the integer value of the digital high setpoint (int)");
-			Serial.println("lv for the voltage (in V) of the digital high setpoint (float)");
+			Serial.println("If the input pin is pulled low, then the setpoint switches to an alternate setpoint");
+			Serial.println("lp for the integer value of the alternate setpoint (int)");
+			Serial.println("lv for the voltage (in V) of the alternate setpoint (float)");
+#endif
+#if LIMITED_OUTPUT
+			Serial.println("If the setpoint value goes outside of the limits, pid control is deactivated and the output jumps to a predetermined setpoint");
+			Serial.println("lo for the output corresponding to the low setpoint (in V) (float)");
+			Serial.println("ho for the output corresponding to the high setpoint (in V) (float)");
+			Serial.println("ls for the low setpoint limit (in V) (float)");
+			Serial.println("hs for the high setpoint  limit(in V) (float)");
 #endif
 			Serial.println("ov for the voltage (in V) of the output (float). Setting it disables PID control.");
 			Serial.println("ra for the number of read averages (int)");
 			Serial.println("pa to enable PID control (1 to enable, 0 to latch output)");
 			Serial.println("po to print the setpoint, feedback, output, and calculation time (1 to enable, 0 to disable)");
+			Serial.println("");
 		}
 	}
 }
