@@ -31,8 +31,8 @@ uint16_t setpointlow = 0;	//default low digital setpoint
 uint8_t readaverages = 4;	//number of times to average the input (hardware)
 
 #if LIMITED_SETPOINT
-uint16_t minsetpoint = int2volts(0,ADC_BITS);
-uint16_t maxsetpoint = int2volts(3.3,ADC_BITS);
+uint16_t minsetpoint = volts2int(0.1,ADC_BITS);
+uint16_t maxsetpoint = volts2int(3,ADC_BITS);
 uint16_t minoutput = 0;
 uint16_t maxoutput = MAX_OUTPUT;
 #endif
@@ -132,7 +132,8 @@ void loop()
 			
 			uint16_t sp;
 			#if ANALOG_INPUT
-				sp = analogRead(PIN_REFERENCE);			
+				sp = analogRead(PIN_REFERENCE);	
+                setpoint = sp;		
 			#endif
 			#if DIGITAL_INPUT
 				if (digitalRead(PIN_REFERENCE) == LOW)
@@ -148,11 +149,11 @@ void loop()
 				sp = setpoint;
 			#endif
 			#if LIMITED_SETPOINT
-				if(setpoint < minsetpoint)
+				if(sp < minsetpoint)
 				{
 					out = minoutput;
 				}
-				else if(setpoint > maxsetpoint)
+				else if(sp > maxsetpoint)
 				{
 					out = maxoutput;
 				}
