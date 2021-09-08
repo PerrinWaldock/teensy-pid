@@ -50,6 +50,14 @@ uint16_t maxoutput = MAX_OUTPUT;
 volatile bool pidcalc = true; //flag saying to perform feedback control calc
 bool pidactive = true;      //flag saying "pid control is active"
 
+#if FEEDFORWARD
+    #define FEEDFORWARD_ARRAY_LENGTH 65536 //MAXINPUT+1
+    #define FF_CALIB_ARRAY_LENGTH 255
+    #define ffCalibOutput(x) int(x*pow(2, PWM_BITS)/FF_CALIB_ARRAY_LENGTH)
+    uint16_t feedforward[FEEDFORWARD_ARRAY_LENGTH];
+    uint16_t ffCalib[FF_CALIB_ARRAY_LENGTH];
+#endif
+
 IntervalTimer pidTimer; //used for timing the pid feedback loop
 IntervalTimer readTimer; //used for timing the serial read code
 
@@ -61,6 +69,11 @@ void updateparams(char* string);  //updates parameters given string
 #endif
 void setpidcalc();          //sets pid calc flag (ISR)
 void setreadserial();       //sets read serial flag (ISR)
+
+#if FEEDFORWARD
+void getFeedforwardReadings(uint16_t* readings);
+void calibrateFeedforward(uint16_t* readings);
+#endif
 
 void setup()
 {
@@ -170,6 +183,10 @@ void loop()
 			#if NEGATIVE_OUTPUT
 				out = flipoutput(out);
 			#endif
+
+            #if FEEDFORWARD
+                out += feedforward[sp];
+            #endif
 		}
 		analogWrite(PIN_OUTPUT, out); //still write output
 		pidcalc = false;
@@ -448,6 +465,13 @@ void updateparams(char* string)
 				Serial.print("pidactive=");
 				Serial.println(pidactive);  
 			}
+           else if(!strcmp(string, "cf")) //calibrate feedforward
+            {
+                Serial.println("calibrating feedforward");
+                getFeedforwardReadings(ffCalib);
+                calibrateFeedforward(ffCalib);
+                Serial.println("done");  
+            }
 			else
 			{
 		    	Serial.println("Invalid Command");
@@ -494,3 +518,64 @@ void setreadserial()
 	readSerial = true;
 }
 #endif
+
+
+void getFeedforwardReadings(uint16_t* readings)
+{
+    for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
+    {
+        uint16_t outputValue = ffCalibOutput(i);
+        analogWrite(PIN_OUTPUT, outputValue);
+        readings[i] = analogRead(PIN_INPUT);
+    }
+}
+
+
+void calibrateFeedforward(uint16_t* readings)
+{
+    for(uint32_t desired = 0; desired < FEEDFORWARD_ARRAY_LENGTH; desired++)
+    {
+        if (desired < minsetpoint)
+        {
+            feedforward[desired] = minoutput;
+        }
+        else if (desired > maxsetpoint)
+        {
+            feedforward[desired] = maxoutput;
+        }
+        else
+        {
+            bool valueFound = false;
+            if(desired > ffCalibOutput(FF_CALIB_ARRAY_LENGTH-1))
+            {
+                uint16_t j = FF_CALIB_ARRAY_LENGTH - 2;
+                feedforward[desired] = ffCalibOutput(j) + (desired - ffCalib[j])*(ffCalibOutput(j+1) - ffCalibOutput(j))/(ffCalib[j+1] - ffCalib[j]);
+                valueFound = true;
+            }
+            else
+            {
+                for(uint16_t j = 0; j < FF_CALIB_ARRAY_LENGTH-1; j++)
+                {
+                    if(desired >= ffCalib[j] && desired <= ffCalib[j+1])
+                    {
+                        valueFound = true;
+                        feedforward[desired] = ffCalibOutput(j) + (desired - ffCalib[j])*(ffCalibOutput(j+1) - ffCalibOutput(j))/(ffCalib[j+1] - ffCalib[j]); //linear interpolate
+                    }
+                }
+            }
+            if (!valueFound)
+            {
+                feedforward[desired] = ffCalibOutput(0) + (desired - ffCalib[0])*(ffCalibOutput(FF_CALIB_ARRAY_LENGTH-1) - ffCalibOutput(0))/(ffCalib[FF_CALIB_ARRAY_LENGTH-1] - ffCalib[0]); //linear interpolate beyond ends
+            }
+            //max/min bounding
+            if(feedforward[desired] > maxoutput)
+            {
+                feedforward[desired] = maxoutput;
+            }
+            else if (feedforward[desired] < minoutput)
+            {
+                feedforward[desired] = minoutput;
+            }
+        }
+    }
+}
