@@ -372,6 +372,16 @@ void updateparams(char* string)
 		{
 			pidactive = false;
 			out = volts2int(atof(&(string[3])), PWM_BITS);
+            if (out > MAX_OUTPUT)
+            {
+                Serial.print("Output out of range!")
+                out = MAX_OUTPUT;
+            }
+            if (out < 0)
+            {
+                Serial.print("Output out of range!")
+                out = 0;
+            }
 			Serial.print("pidactive=");
 			Serial.println(pidactive);
 			Serial.print("output=");
@@ -465,6 +475,7 @@ void updateparams(char* string)
 				Serial.print("pidactive=");
 				Serial.println(pidactive);  
 			}
+#if FEEDFORWARD
            else if(!strcmp(string, "cf")) //calibrate feedforward
             {
                 Serial.println("calibrating feedforward");
@@ -472,6 +483,7 @@ void updateparams(char* string)
                 calibrateFeedforward(ffCalib);
                 Serial.println("done");  
             }
+#endif
 			else
 			{
 		    	Serial.println("Invalid Command");
@@ -519,7 +531,7 @@ void setreadserial()
 }
 #endif
 
-
+#if FEEDFORWARD
 void getFeedforwardReadings(uint16_t* readings)
 {
     for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
@@ -579,3 +591,4 @@ void calibrateFeedforward(uint16_t* readings)
         }
     }
 }
+#endif

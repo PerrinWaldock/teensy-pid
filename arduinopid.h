@@ -2,13 +2,20 @@
 
 
 //defines the input and output pins 
-#define PIN_INPUT     A0
-#define PIN_OUTPUT    A21
-#define PIN_REFERENCE A14
 
-#define DIGITAL_INPUT false //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low
+//teensy 3.6
+//#define PIN_INPUT     A0
+//#define PIN_OUTPUT    A21
+//#define PIN_REFERENCE A14
+
+//teensy 3.2
+#define PIN_INPUT     A9
+#define PIN_OUTPUT    A14
+#define PIN_REFERENCE A0
+
+#define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low
 #define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE
-#define FEEDFORWARD true
+#define FEEDFORWARD false
 
 
 //sets the max PWM and ADC resolutions for the Teensy 3.2
