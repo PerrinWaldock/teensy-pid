@@ -16,6 +16,10 @@
 /*
  * TODO write python script that generates the parameter setting code
  * pass it a pointer to a struct of pointers to all relevant values for max speed
+ * 
+ * TODO allow for smaller feedforward array, have same output for all inputs of same MSBs
+ * 
+ * TODO allow for separate digital and analog inputs
  */
 
 #include "arduinopid.h"
@@ -374,12 +378,12 @@ void updateparams(char* string)
 			out = volts2int(atof(&(string[3])), PWM_BITS);
             if (out > MAX_OUTPUT)
             {
-                Serial.print("Output out of range!")
+                Serial.print("Output out of range!");
                 out = MAX_OUTPUT;
             }
             if (out < 0)
             {
-                Serial.print("Output out of range!")
+                Serial.print("Output out of range!");
                 out = 0;
             }
 			Serial.print("pidactive=");

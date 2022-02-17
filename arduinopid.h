@@ -2,16 +2,25 @@
 
 
 //defines the input and output pins 
+#if defined(__MK66FX1M0__) //3.6
+    #define TEENSY36
+#elif defined(__MK64FX512__) //3.5
+    #define TEENSY35
+#elif defined(__MK20DX256__) //3.2
+    #define TEENSY32
+#endif
 
-//teensy 3.6
-//#define PIN_INPUT     A0
-//#define PIN_OUTPUT    A21
-//#define PIN_REFERENCE A14
+#if defined(TEENSY36) || defined(TEENSY35)
+#define PIN_INPUT     A0
+#define PIN_OUTPUT    A21
+#define PIN_REFERENCE A14
 
+#elif defined(TEENSY32)
 //teensy 3.2
 #define PIN_INPUT     A9
 #define PIN_OUTPUT    A14
-#define PIN_REFERENCE A0
+#define PIN_REFERENCE 0
+#endif
 
 #define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low
 #define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE
