@@ -17,9 +17,7 @@
  * TODO write python script that generates the parameter setting code
  * pass it a pointer to a struct of pointers to all relevant values for max speed
  * 
- * TODO allow for smaller feedforward array, have same output for all inputs of same MSBs
- * 
- * TODO allow for separate digital and analog inputs
+ * TODO allow for separate digital and analog inputs so the setpoint can be programmed remotely
  */
 
 #include "arduinopid.h"
@@ -66,6 +64,7 @@ bool pidactive = true;      //flag saying "pid control is active"
     #define FEEDFORWARD_ARRAY_LENGTH 4096//65536 //MAXINPUT+1
     #define FF_CALIB_ARRAY_LENGTH 256
     #define ffCalibOutput(x) (int)((x*((1 << DAC_BITS) - 1))/(FF_CALIB_ARRAY_LENGTH - 1))
+    #define CALIBRATION_AVERAGES 64
     uint16_t feedforward[FEEDFORWARD_ARRAY_LENGTH];
     uint16_t ffCalib[FF_CALIB_ARRAY_LENGTH];
 #endif
@@ -423,6 +422,15 @@ void updateparams(char* string)
             }
             Serial.println(&(string[3]));
         }
+#if FEEDFORWARD
+       else if(!strcmp(string, "cf")) //calibrate feedforward
+        {
+            Serial.println("calibrating feedforward");
+            getFeedforwardReadings(ffCalib);
+            calibrateFeedforward(ffCalib);
+            Serial.println("done");
+        }
+#endif
 		else
 		{
 			Serial.println("Invalid Command");
@@ -512,27 +520,47 @@ void updateparams(char* string)
 				Serial.println(pidactive);  
 			}
 #if FEEDFORWARD
-           else if(!strcmp(string, "cf")) //calibrate feedforward
+            else if(!strcmp(string, "cd")) //feedforward calibration data
             {
-                Serial.println("calibrating feedforward");
-                getFeedforwardReadings(ffCalib);
-                calibrateFeedforward(ffCalib);
-
-                /*for (uint32_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
+                Serial.println("Feedforward Calibration Data:");
+                Serial.println("Output, Input");
+                for (uint32_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
                 {
                     Serial.print(ffCalibOutput(i));
-                    Serial.print(" ");
+                    Serial.print(", ");
                     Serial.println(ffCalib[i]);
                     delay(10);
                 }
+            }
+            else if(!strcmp(string, "cf")) //feedforward array
+            {
+                Serial.println("Feedforward Array:");
+                Serial.println("Desired, Output");
                 for (uint32_t i = 0; i < FEEDFORWARD_ARRAY_LENGTH; i += 16)
                 {
                     Serial.print(i);
-                    Serial.print(" ");
+                    Serial.print(", ");
                     Serial.println(feedforward[i]);
                     delay(10);
-                }*/
-                Serial.println("done");  
+                }
+            }
+            else if(!strcmp(string, "ce"))
+            {
+                uint16_t maxIndex = 0;
+                uint16_t minIndex = 0;
+                calibrationExtrema(ffCalib, &maxIndex, &minIndex);
+                uint16_t maxValue = ffCalib[maxIndex];
+                uint16_t minValue = ffCalib[minIndex];
+                Serial.print("min: ");
+                Serial.print(minValue);
+                Serial.print(" (");
+                Serial.print(int2volts(minValue, ADC_BITS), 4);
+                Serial.print(" V)\t");
+                Serial.print("max: ");
+                Serial.print(maxValue);
+                Serial.print(" (");
+                Serial.print(int2volts(maxValue, ADC_BITS), 4);
+                Serial.print(" V) ");
             }
 #endif
 			else
@@ -564,7 +592,7 @@ void updateparams(char* string)
 			Serial.println("pa to enable PID control (1 to enable, 0 to latch output)");
 			Serial.println("po to print the setpoint, feedback, output, and calculation time (1 to enable, 0 to disable)");
 #if FEEDFORWARD
-            Serial.println("cf to calibrate feedforward");
+            Serial.println("cf to calibrate feedforward (cd to see calibration data, ce to see calibration extrema)");
 #endif
             Serial.println("cl to clear integral term, setpoint, etc");
 			Serial.println("");
@@ -589,35 +617,43 @@ void setreadserial()
 #if FEEDFORWARD
 void getFeedforwardReadings(uint16_t* readings)
 {
+    analogReadAveraging(CALIBRATION_AVERAGES);
     for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
     {
         uint16_t outputValue = ffCalibOutput(i);
         analogWrite(PIN_OUTPUT, outputValue);
         readings[i] = analogRead(PIN_INPUT);
     }
+    analogReadAveraging(readaverages);
+
+}
+
+void calibrationExtrema(uint16_t* readings, uint16_t* maxIndex, uint16_t* minIndex)
+{
+    *maxIndex = 0;
+    *minIndex = 0;
+    for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
+    {
+        if (readings[i] > readings[*maxIndex])
+        {
+            *maxIndex = i;
+        }
+        if (readings[i] < readings[*minIndex])
+        {
+            *minIndex = i;
+        }
+    }
 }
 
 
 void calibrateFeedforward(uint16_t* readings)
 {//desired is the desired feedback. feedforward should be an array of outputs to give the desired value
-    uint16_t maxValue = 0;
     uint16_t maxIndex = 0;
-    uint16_t minValue = MAX_INPUT;
     uint16_t minIndex = 0;
-    for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
-    {
-        if (readings[i] > maxValue)
-        {
-            maxIndex = i;
-            maxValue = readings[maxIndex];
-        }
-        if (readings[i] < minValue)
-        {
-            minIndex = i;
-            minValue = readings[minIndex];
-        }
-    }
-    
+    calibrationExtrema(readings, &maxIndex, &minIndex);
+    uint16_t maxValue = readings[maxIndex];
+    uint16_t minValue = readings[minIndex];
+
     for(uint32_t desired = 0; desired < FEEDFORWARD_ARRAY_LENGTH; desired++) 
     {
 #if LIMITED_SETPOINT
