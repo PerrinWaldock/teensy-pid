@@ -24,20 +24,27 @@
 
 #define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low
 #define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE
-#define FEEDFORWARD false
+#define FEEDFORWARD true
 
 
 //sets the max PWM and ADC resolutions for the Teensy 3.2
-#define REFERENCE_VOLTAGE 3.3 //can change to 1.2 volts if we want
-#define PWM_BITS 15
-#define ADC_BITS 12
+#if defined(TEENSY36) || defined(TEENSY35)
+    #define REFERENCE_VOLTAGE 3.3 //can change to 1.2 volts if we want
+    #define DAC_BITS 12
+    #define ADC_BITS 13
+#elif defined(TEENSY32)
+    #define REFERENCE_VOLTAGE 3.3 //can change to 1.2 volts if we want
+    #define DAC_BITS 12
+    #define ADC_BITS 12
+#endif
+
 #define SIGNED_OUTPUT false   //output only goes from 0 to +
 #define SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
 #define NEGATIVE_OUTPUT false //comment out for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
 
-const uint16_t MAX_OUTPUT = (1 << PWM_BITS) - 1; //maximum output value for the DAC (integer)
+const uint16_t MAX_OUTPUT = (1 << DAC_BITS) - 1; //maximum output value for the DAC (integer)
 const uint16_t MAX_INPUT = (1 << ADC_BITS) - 1; //maximum output value for the DAC (integer)
 const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
 
