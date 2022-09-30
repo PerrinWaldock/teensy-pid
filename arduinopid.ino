@@ -18,6 +18,10 @@
  * pass it a pointer to a struct of pointers to all relevant values for max speed
  * 
  * TODO allow for separate digital and analog inputs so the setpoint can be programmed remotely
+ * 
+ * TODO separate 3.3V and 5V pads on Teensy and power externally to reduce analog noise
+ * 
+ * TODO test feedforward calibration code
  */
 
 #include "arduinopid.h"
@@ -26,7 +30,7 @@
 //pid feedback control parameters
 
 #if FEEDFORWARD
-float kp=.1, ki=2000, kd=0; //good for feedforward
+float kp=.005, ki=1000, kd=0; //good for feedforward
 #else
 float kp=0.1, ki=45000, kd=0; //good for non-feedforward
 #endif
@@ -41,8 +45,8 @@ uint16_t setpointlow = 0;	//default low digital setpoint
 uint8_t readaverages = 4;	//number of times to average the input (hardware), default 4
 
 #if LIMITED_SETPOINT
-uint16_t minsetpoint = volts2int(0.1,ADC_BITS);
-uint16_t maxsetpoint = volts2int(3,ADC_BITS);
+uint16_t minsetpoint = volts2int(0.05,ADC_BITS);
+uint16_t maxsetpoint = volts2int(3.2,ADC_BITS);
 uint16_t minoutput = 0;
 uint16_t maxoutput = MAX_OUTPUT;
 #endif
@@ -135,6 +139,11 @@ void setup()
 	//begins pid feedback loop timer
 	pidTimer.begin(setpidcalc, SAMPLE_PERIOD_US);
 
+#if FEEDFORWARD
+    getFeedforwardReadings(ffCalib);
+    calibrateFeedforward(ffCalib);   
+#endif
+
 }
 
 //feedback control variables 
@@ -156,8 +165,12 @@ void loop()
 			ts = micros();
 		#endif
         feedback = analogRead(PIN_INPUT); //gets feedback
-		if(pidactive) //only run if pid is active
+		if(pidactive) //only run if pid is active TODO add logic that skips the wait for digital control and restarts the PID clock
 		{
+			bool skipcalc = false;
+            #if FEEDFORWARD
+            bool onlyff = false;
+            #endif
 			#if ANALOG_INPUT
 				sp = analogRead(PIN_REFERENCE);	
                 setpoint = sp;		
@@ -165,45 +178,80 @@ void loop()
 			#if DIGITAL_INPUT
 				if (digitalReadFast(PIN_REFERENCE) == LOW)
 				{
-					sp = setpointlow;			
+                    #if FEEDFORWARD //skip the calculation on first step after changing state
+                    if(sp == setpoint)
+                    {
+                        onlyff = true;
+                    }
+                    #endif
+					sp = setpointlow;	
 				}
 				else
 				{
+                    #if FEEDFORWARD //skip the calculation on first step after changing state
+                    if(sp == setpointlow)
+                    {
+                        onlyff = true;
+                    }
+                    #endif
 					sp = setpoint;			
 				}
 			#endif
 			#if !DIGITAL_INPUT && !ANALOG_INPUT
 				sp = setpoint;
 			#endif
-			#if LIMITED_SETPOINT //TODO look into using "clear" here
-				if(sp < minsetpoint)
-				{
-					out = minoutput;
-				}
-				else if(sp > maxsetpoint)
-				{
-					out = maxoutput;
-				}
-				else
-				{
-					out = myPID.step(sp, feedback); //only runs the pid calculation if you are inside the specified setpoint range	
-					out = bound(out, min(minoutput, maxoutput), max(minoutput, maxoutput));
-				}
-			#else
-				out = myPID.step(sp, feedback); //no endpoints to worry about
-			#endif
-			
 
-			#if NEGATIVE_OUTPUT
-				out = flipoutput(out);
-			#endif
 
-            #if FEEDFORWARD
-                out += feedforward[sp];
+            #if LIMITED_SETPOINT //TODO look into using "clear" here
+                if(sp < minsetpoint)
+                {
+                    #if NEGATIVE_OUTPUT
+                    out = maxoutput;
+                    #else
+                    out = minoutput;
+                    #endif
+                    skipcalc = true;
+                    
+                }
+                else if(sp > maxsetpoint)
+                {
+                    #if NEGATIVE_OUTPUT
+                    out = minoutput;
+                    #else
+                    out = maxoutput;
+                    #endif
+                    skipcalc = true;
+                }
             #endif
+
+            if (!skipcalc)
+            {
+                #if FEEDFORWRD
+                    out = feedforward[sp];
+                    if(!onlyff)
+                    {
+                    #if NEGATIVE_OUTPUT
+                        out += myPID.step(sp, feedback);
+                    #else
+                        out -= myPID.step(sp, feedback);
+                    #endif
+                    }
+                #else
+                    out = myPID.step(sp, feedback);              
+                    #if NEGATIVE_OUTPUT
+                        out = flipoutput(out);
+                    #endif
+                #endif
+    
+                #if LIMITED_SETPOINT
+    				out = bound(out, min(minoutput, maxoutput), max(minoutput, maxoutput));
+    			#endif
+            }
+          
 		}
 		analogWrite(PIN_OUTPUT, out); //still write output
-		pidcalc = false;
+        delayMicroseconds(1); //let analog output settle
+		pidcalc = false; //resets flag
 		#if TIME_FEEDBACK_LOOP
 			tss = micros();
 		#endif
@@ -439,6 +487,7 @@ void updateparams(char* string)
         if (updatePID)
         {
             bool success = myPID.configure(kp, ki, kd, SAMPLE_RATE_HZ, DAC_BITS, SIGNED_OUTPUT);
+            myPID.clear();
     
             if(!success)
             {
@@ -560,7 +609,7 @@ void updateparams(char* string)
                 Serial.print(maxValue);
                 Serial.print(" (");
                 Serial.print(int2volts(maxValue, ADC_BITS), 4);
-                Serial.print(" V) ");
+                Serial.println(" V) ");
             }
 #endif
 			else
@@ -615,7 +664,7 @@ void setreadserial()
 #endif
 
 #if FEEDFORWARD
-void getFeedforwardReadings(uint16_t* readings)
+void getFeedforwardReadings(uint16_t* readings) //TODO should ramp up and down several times then average out
 {
     analogReadAveraging(CALIBRATION_AVERAGES);
     for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
@@ -623,6 +672,13 @@ void getFeedforwardReadings(uint16_t* readings)
         uint16_t outputValue = ffCalibOutput(i);
         analogWrite(PIN_OUTPUT, outputValue);
         readings[i] = analogRead(PIN_INPUT);
+    }
+
+    for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
+    {
+        uint16_t outputValue = ffCalibOutput(i);
+        analogWrite(PIN_OUTPUT, outputValue);
+        readings[i] = (analogRead(PIN_INPUT) + readings[i])/2;
     }
     analogReadAveraging(readaverages);
 
@@ -654,9 +710,12 @@ void calibrateFeedforward(uint16_t* readings)
     uint16_t maxValue = readings[maxIndex];
     uint16_t minValue = readings[minIndex];
 
-    for(uint32_t desired = 0; desired < FEEDFORWARD_ARRAY_LENGTH; desired++) 
+    for(uint32_t desired = 0; desired < FEEDFORWARD_ARRAY_LENGTH; desired++)  //iterates through calibration array
     {
+//not convinced this helps - I'll trust in the feedforward array
+/*
 #if LIMITED_SETPOINT
+    #if NEGATIVE_OUTPUT
         if (desired < minsetpoint)
         {
             feedforward[desired] = minoutput;
@@ -665,15 +724,26 @@ void calibrateFeedforward(uint16_t* readings)
         {
             feedforward[desired] = maxoutput;
         }
+    #else
+        if (desired < minsetpoint)
+        {
+            feedforward[desired] = maxoutput;
+        }
+        else if (desired > maxsetpoint)
+        {
+            feedforward[desired] = minoutput;
+        }
+
+    #endif
 #else
-        if (false)
+        if (false) //magic to make the predfine chain make sense
         {
             
         }
 #endif
         else //if within range
         {
-            
+*/ 
             
             bool valueFound = false;
             if(desired > maxValue) //if desired value is out of range, linearly interpolate
@@ -686,20 +756,25 @@ void calibrateFeedforward(uint16_t* readings)
                 feedforward[desired] = ffCalibOutput(minIndex);
                 valueFound = true;
             }
-            else //search through array
+            else //search through calibration array for desired to be between two adjacent points
             {
                 for(uint16_t j = 0; j < FF_CALIB_ARRAY_LENGTH-1 && !valueFound; j++)
                 {
                     uint16_t jp = j + 1;
-                    if(desired == readings[j] && desired == readings[jp])
+                    if(desired == readings[j])
                     {
                         feedforward[desired] = ffCalibOutput(j);
                         valueFound = true;
                     }
-                    else if(desired >= readings[j] && desired <= readings[jp]) //by the IVT, there must be some set of subsequent rising points with the desired value between
+                    //readings[j] must be at least one smaller than desired and readings[jp] must be equal or larger so never will divide by zero
+                    else if((desired > readings[j]) && (desired <= readings[jp])) //by the IVT, there must be some set of subsequent rising points with the desired value between
                     {
-                        feedforward[desired] = ffCalibOutput(j) + (desired - readings[j])*(ffCalibOutput(jp) - ffCalibOutput(j))/(readings[jp] - readings[j]); //linear interpolate
-                        
+                        feedforward[desired] = ffCalibOutput(j) + ((int32_t)((desired - readings[j])*(ffCalibOutput(jp) - ffCalibOutput(j))))/(readings[jp] - readings[j]); //linear interpolate
+                        valueFound = true;
+                    }
+                    else if (desired < readings[j] && desired >= readings[jp])
+                    {
+                        feedforward[desired] = ffCalibOutput(jp) + ((int32_t)(readings[j] - desired)*(ffCalibOutput(jp) - ffCalibOutput(j)))/(readings[j] - readings[jp]); //linear interpolate
                         valueFound = true;
                     }
                     if (valueFound)
@@ -712,16 +787,13 @@ void calibrateFeedforward(uint16_t* readings)
                 Serial.println(desired);
                 //feedforward[desired] = ffCalibOutput(0) + (desired - ffCalib[0])*(ffCalibOutput(FF_CALIB_ARRAY_LENGTH-1) - ffCalibOutput(0))/(ffCalib[FF_CALIB_ARRAY_LENGTH-1] - ffCalib[0]); //linear interpolate beyond ends
             }
-            //max/min bounding
-            if(feedforward[desired] > maxoutput)
-            {
-                feedforward[desired] = maxoutput;
-            }
-            else if (feedforward[desired] < minoutput)
-            {
-                feedforward[desired] = minoutput;
-            }
-        }
+
+            #if LIMITED_SETPOINT
+                minsetpoint = 1.5*minValue + 1;
+                maxsetpoint = .98*maxValue - 1;
+                feedforward[desired] = bound(feedforward[desired], min(minoutput, maxoutput), max(minoutput, maxoutput));
+            #endif
+        //}
     }
 }
 #endif
