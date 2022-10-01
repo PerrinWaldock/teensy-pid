@@ -21,7 +21,15 @@
  * 
  * TODO separate 3.3V and 5V pads on Teensy and power externally to reduce analog noise
  * 
- * TODO test feedforward calibration code
+ * TODO deactivate pidtimer if setpoint out of range, re-enable it once pid is in range (gives faster and more consistant ramp response)
+ * 
+ * TODO print warning and sets flag if output has railed (is set equal to max output) when setpoint has not railed
+ * 
+ * TODO create python interface code that uses serial to
+ * -reads extrema
+ * -sets setpoint
+ * -sets setpoint as a fraction of extrema (probably after a calibration)
+ * -checks if output has railed
  */
 
 #include "arduinopid.h"
@@ -47,15 +55,18 @@ uint8_t readaverages = 4;	//number of times to average the input (hardware), def
 
 #if LIMITED_SETPOINT
 uint16_t minsetpoint = volts2int(0.05,ADC_BITS);
-uint16_t maxsetpoint = volts2int(3.2,ADC_BITS);
+uint16_t maxsetpoint = volts2int(3.25,ADC_BITS);
 uint16_t minoutput = 0;
 uint16_t maxoutput = MAX_OUTPUT;
+
+//TODO setOutputRange if not feedforward
 #endif
 
 
 //things that only need to be defined if feedback control is active
 #ifdef SERIAL_BAUD
 	char instring[INSTRING_LENGTH];   //input string
+    char outstring[255];
 	uint8_t inind = 0;
 	bool serialActive = false;      //serial active flag
 	bool printout = false;        //if true, print feedback stats
@@ -94,11 +105,11 @@ void calibrateFeedforward(uint16_t* readings);
 #if SAVE_DATA
     const uint16_t KI_EEPROM_ADDRESS=0, KP_EEPROM_ADDRESS=4, KD_EEPROM_ADDRESS=8;
     void savePID(float ki, float kp, float kd);
-    void loadPID(float* ki, float* kp, float* kd);
+    void loadPID(float& ki, float& kp, float& kd);
     #if LIMITED_SETPOINT
     const uint16_t MINSP_EEPROM_ADDRESS = 12, MAXSP_EEPROM_ADDRESS = 14, MINOP_EEPROM_ADDRESS = 16, MAXOP_EEPROM_ADDRESS = 18;
     void saveLimits(uint16_t minsetpoint, uint16_t maxsetpoint, uint16_t minoutput, uint16_t maxoutput);
-    void loadLimits(uint16_t* minsetpoint, uint16_t* maxsetpoint, uint16_t* minoutput, uint16_t* maxoutput);
+    void loadLimits(uint16_t& minsetpoint, uint16_t& maxsetpoint, uint16_t& minoutput, uint16_t& maxoutput);
     #endif
     #if FEEDFORWARD
     const uint16_t FFDATA_EEPROM_ADDRESS = 512;
@@ -110,7 +121,7 @@ void saveEverything()
 {
     savePID(ki, kp, kd);
     #if LIMITED_SETPOINT
-        saveLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
+    //    saveLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
     #endif
     #if FEEDFORWARD
     saveFFdata(ffCalib);
@@ -119,9 +130,9 @@ void saveEverything()
 
 void loadEverything()
 {
-    loadPID(&ki, &kp, &kd);
+    loadPID(ki, kp, kd);
     #if LIMITED_SETPOINT
-        loadLimits(&minsetpoint, &maxsetpoint, &minoutput, &maxoutput);
+    //    loadLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
     #endif
     #if FEEDFORWARD
     loadFFdata(ffCalib);
@@ -192,9 +203,9 @@ void setup()
 }
 
 //feedback control variables 
-uint32_t feedback = 0;
-uint16_t out = 0;
-uint16_t sp;
+uint16_t feedback = 0;
+int32_t out = 0;
+uint16_t sp = 0;
 #if TIME_FEEDBACK_LOOP
 	uint32_t ts = 0;
 	uint32_t tss = 0;
@@ -458,7 +469,7 @@ void updateparams(char* string)
 		}
 		else if(!strcmp(string, "hs"))
 		{
-			minsetpoint = volts2int(atof(&(string[3])), DAC_BITS);
+			maxsetpoint = volts2int(atof(&(string[3])), DAC_BITS);
 			Serial.print("Setpoint Limits: ");
 			Serial.print(int2volts(minsetpoint, ADC_BITS), 4);
 			Serial.print("V, ");
@@ -670,7 +681,7 @@ void updateparams(char* string)
             {
                 uint16_t maxIndex = 0;
                 uint16_t minIndex = 0;
-                calibrationExtrema(ffCalib, &maxIndex, &minIndex);
+                calibrationExtrema(ffCalib, maxIndex, minIndex);
                 uint16_t maxValue = ffCalib[maxIndex];
                 uint16_t minValue = ffCalib[minIndex];
                 Serial.print("min: ");
@@ -747,6 +758,7 @@ void getFeedforwardReadings(uint16_t* readings) //TODO should ramp up and down s
     {
         uint16_t outputValue = ffCalibOutput(i);
         analogWrite(PIN_OUTPUT, outputValue);
+        delayMicroseconds(2); //wait for output to stabilize
         readings[i] = analogRead(PIN_INPUT);
     }
 
@@ -754,25 +766,26 @@ void getFeedforwardReadings(uint16_t* readings) //TODO should ramp up and down s
     {
         uint16_t outputValue = ffCalibOutput(i);
         analogWrite(PIN_OUTPUT, outputValue);
+        delayMicroseconds(2); //wait for output to stabilize
         readings[i] = (analogRead(PIN_INPUT) + readings[i])/2;
     }
     analogReadAveraging(readaverages);
 
 }
 
-void calibrationExtrema(uint16_t* readings, uint16_t* maxIndex, uint16_t* minIndex)
+void calibrationExtrema(uint16_t* readings, uint16_t& maxIndex, uint16_t& minIndex)
 {
-    *maxIndex = 0;
-    *minIndex = 0;
+    maxIndex = 0;
+    minIndex = 0;
     for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
     {
-        if (readings[i] > readings[*maxIndex])
+        if (readings[i] > readings[maxIndex])
         {
-            *maxIndex = i;
+            maxIndex = i;
         }
-        if (readings[i] < readings[*minIndex])
+        if (readings[i] < readings[minIndex])
         {
-            *minIndex = i;
+            minIndex = i;
         }
     }
 }
@@ -782,7 +795,7 @@ void calibrateFeedforward(uint16_t* readings)
 {//desired is the desired feedback. feedforward should be an array of outputs to give the desired value
     uint16_t maxIndex = 0;
     uint16_t minIndex = 0;
-    calibrationExtrema(readings, &maxIndex, &minIndex);
+    calibrationExtrema(readings, maxIndex, minIndex);
     uint16_t maxValue = readings[maxIndex];
     uint16_t minValue = readings[minIndex];
 
@@ -884,7 +897,7 @@ void calibrateFeedforward(uint16_t* readings)
         EEPROM.put(KD_EEPROM_ADDRESS, kd);
     
     }
-    void loadPID(float* ki, float* kp, float* kd)
+    void loadPID(float& ki, float& kp, float& kd)
     {
         EEPROM.get(KI_EEPROM_ADDRESS, ki);
         EEPROM.get(KP_EEPROM_ADDRESS, kp);
@@ -898,12 +911,12 @@ void calibrateFeedforward(uint16_t* readings)
         EEPROM.put(MINOP_EEPROM_ADDRESS, minoutput);
         EEPROM.put(MAXOP_EEPROM_ADDRESS, maxoutput);
     }
-    void loadLimits(uint16_t* minsetpoint, uint16_t* maxsetpoint, uint16_t* minoutput, uint16_t* maxoutput)
+    void loadLimits(uint16_t& minsetpoint, uint16_t& maxsetpoint, uint16_t& minoutput, uint16_t& maxoutput)
     {
-        EEPROM.get(MINSP_EEPROM_ADDRESS, *minsetpoint);
-        EEPROM.get(MAXSP_EEPROM_ADDRESS, *maxsetpoint);
-        EEPROM.get(MINOP_EEPROM_ADDRESS, *minoutput);
-        EEPROM.get(MAXOP_EEPROM_ADDRESS, *maxoutput);
+        EEPROM.get(MINSP_EEPROM_ADDRESS, minsetpoint);
+        EEPROM.get(MAXSP_EEPROM_ADDRESS, maxsetpoint);
+        EEPROM.get(MINOP_EEPROM_ADDRESS, minoutput);
+        EEPROM.get(MAXOP_EEPROM_ADDRESS, maxoutput);
     
     }
     #endif

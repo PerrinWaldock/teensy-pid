@@ -38,12 +38,12 @@
     #define ADC_BITS 12
 #endif
 
-#define SIGNED_OUTPUT false   //output only goes from 0 to +
+#define SIGNED_OUTPUT FEEDFORWARD   //want unsigned output if no feedforward, and signed output if there is
 #define SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
-#define NEGATIVE_OUTPUT true //false for positive control
+#define NEGATIVE_OUTPUT false //false for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
-#define SAVE_DATA false  //saves calibration data and pid constants
+#define SAVE_DATA true  //saves calibration data and pid constants
 
 
 const uint16_t MAX_OUTPUT = (1 << DAC_BITS) - 1; //maximum output value for the DAC (integer)
