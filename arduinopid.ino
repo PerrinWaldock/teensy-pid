@@ -14,16 +14,12 @@
  */
 
 /*
- * TODO write python script that generates the parameter setting code
- * pass it a pointer to a struct of pointers to all relevant values for max speed
  * 
  * TODO allow for separate digital and analog inputs so the setpoint can be programmed remotely
  * 
- * TODO separate 3.3V and 5V pads on Teensy and power externally to reduce analog noise
- * 
- * TODO deactivate pidtimer if setpoint out of range, re-enable it once pid is in range (gives faster and more consistant ramp response)
- * 
  * TODO print warning and sets flag if output has railed (is set equal to max output) when setpoint has not railed
+ * 
+ * TODO allow setting calculation period on-the-fly?
  * 
  * TODO create python interface code that uses serial to
  * -reads extrema
@@ -214,16 +210,16 @@ uint16_t sp = 0;
 //main loop
 void loop()
 { 
+    bool skipcalc = false; //set to true if the PID calc should be skipped (if pid setpoint is out of limits)
 	//run feedback control loop
 	if(pidcalc)
 	{
+       pidcalc = false; //resets flag
 		#if TIME_FEEDBACK_LOOP
 			ts = micros();
 		#endif
-        feedback = analogRead(PIN_INPUT); //gets feedback
 		if(pidactive) //only run if pid is active TODO add logic that skips the wait for digital control and restarts the PID clock
 		{
-			bool skipcalc = false;
             #if FEEDFORWARD
             bool onlyff = false;
             #endif
@@ -276,12 +272,17 @@ void loop()
                     #else
                     out = maxoutput;
                     #endif
-                    skipcalc = true;
                 }
             #endif
 
-            if (!skipcalc)
+            if (skipcalc)
             {
+                pidTimer.begin(setpidcalc, SAMPLE_PERIOD_US);        
+                pidcalc = true; //increase the response time by polling digital input more frequently
+            }
+            else
+            {
+                feedback = analogRead(PIN_INPUT); //only collects feedback
                 #if FEEDFORWRD
                     out = feedforward[sp];
                     if(!onlyff)
@@ -306,8 +307,10 @@ void loop()
           
 		}
 		analogWrite(PIN_OUTPUT, out); //still write output
-        delayMicroseconds(1); //let analog output settle
-		pidcalc = false; //resets flag
+        if(!skipcalc)
+        {
+            delayMicroseconds(1); //let analog output settle
+        }
 		#if TIME_FEEDBACK_LOOP
 			tss = micros();
 		#endif
@@ -345,8 +348,12 @@ void loop()
 			//prints parameters
 			if(printout)
 			{
+                if(skipcalc)
+                {
+                    feedback = analogRead(PIN_INPUT); //currently don't collect input if skipping the calculation
+                }
 				Serial.print("s:");
-				Serial.print(sp); //todo should this be setpoint?
+				Serial.print(sp);
 				Serial.print("\t f:");
 				Serial.print(feedback);
 				Serial.print("\t o:");
