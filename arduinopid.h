@@ -43,6 +43,8 @@
 #define NEGATIVE_OUTPUT true //false for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
+#define SAVE_DATA false  //saves calibration data and pid constants
+
 
 const uint16_t MAX_OUTPUT = (1 << DAC_BITS) - 1; //maximum output value for the DAC (integer)
 const uint16_t MAX_INPUT = (1 << ADC_BITS) - 1; //maximum output value for the DAC (integer)

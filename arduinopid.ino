@@ -25,14 +25,15 @@
  */
 
 #include "arduinopid.h"
+#include <EEPROM.h>     //for permanently saving settings
 #include <FastPID.h>  //prepackaged arduino feedback control library
 
 //pid feedback control parameters
 
 #if FEEDFORWARD
-float kp=.005, ki=1000, kd=0; //good for feedforward
+float kp=.005, ki=1000, kd=0; //good starting point for feedforward
 #else
-float kp=0.1, ki=45000, kd=0; //good for non-feedforward
+float kp=0.1, ki=45000, kd=0; //good starting point for non-feedforward
 #endif
 /*float kp=1;
 float ki=kp*SAMPLE_RATE_HZ;
@@ -90,6 +91,46 @@ void getFeedforwardReadings(uint16_t* readings);
 void calibrateFeedforward(uint16_t* readings);
 #endif
 
+#if SAVE_DATA
+    const uint16_t KI_EEPROM_ADDRESS=0, KP_EEPROM_ADDRESS=4, KD_EEPROM_ADDRESS=8;
+    void savePID(float ki, float kp, float kd);
+    void loadPID(float* ki, float* kp, float* kd);
+    #if LIMITED_SETPOINT
+    const uint16_t MINSP_EEPROM_ADDRESS = 12, MAXSP_EEPROM_ADDRESS = 14, MINOP_EEPROM_ADDRESS = 16, MAXOP_EEPROM_ADDRESS = 18;
+    void saveLimits(uint16_t minsetpoint, uint16_t maxsetpoint, uint16_t minoutput, uint16_t maxoutput);
+    void loadLimits(uint16_t* minsetpoint, uint16_t* maxsetpoint, uint16_t* minoutput, uint16_t* maxoutput);
+    #endif
+    #if FEEDFORWARD
+    const uint16_t FFDATA_EEPROM_ADDRESS = 512;
+    void saveFFdata(uint16_t* readings);
+    void loadFFdata(uint16_t* readings);
+    #endif
+
+void saveEverything()
+{
+    savePID(ki, kp, kd);
+    #if LIMITED_SETPOINT
+        saveLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
+    #endif
+    #if FEEDFORWARD
+    saveFFdata(ffCalib);
+    #endif
+}
+
+void loadEverything()
+{
+    loadPID(&ki, &kp, &kd);
+    #if LIMITED_SETPOINT
+        loadLimits(&minsetpoint, &maxsetpoint, &minoutput, &maxoutput);
+    #endif
+    #if FEEDFORWARD
+    loadFFdata(ffCalib);
+    #endif
+}
+    
+#endif
+
+
 void setup()
 {
 	//sets pin states
@@ -139,7 +180,11 @@ void setup()
 	//begins pid feedback loop timer
 	pidTimer.begin(setpidcalc, SAMPLE_PERIOD_US);
 
-#if FEEDFORWARD
+#if SAVE_DATA
+    loadEverything();
+#endif
+
+#if FEEDFORWARD && !SAVE_DATA
     getFeedforwardReadings(ffCalib);
     calibrateFeedforward(ffCalib);   
 #endif
@@ -473,10 +518,38 @@ void updateparams(char* string)
 #if FEEDFORWARD
        else if(!strcmp(string, "cf")) //calibrate feedforward
         {
-            Serial.println("calibrating feedforward");
-            getFeedforwardReadings(ffCalib);
-            calibrateFeedforward(ffCalib);
-            Serial.println("done");
+            if(atoi(&(string[3])))
+            {
+                Serial.println("cf=1");
+                Serial.println("calibrating feedforward");
+                getFeedforwardReadings(ffCalib);
+                calibrateFeedforward(ffCalib);
+                Serial.println("done");
+            }
+            else
+            {
+                Serial.println("cf=0");
+            }
+        }
+#endif
+#if SAVE_DATA
+        else if (!strcmp(string, "ew"))
+        {
+            bool write2eeprom = atoi(&(string[3]));
+            Serial.print("ee=");
+            Serial.println(write2eeprom);
+            if(write2eeprom)
+            {
+                Serial.println("Writing...");
+                saveEverything();
+                Serial.println("done");
+            }
+            else
+            {
+                Serial.println("Reading...");
+                loadEverything();
+                Serial.println("done");
+            }
         }
 #endif
 		else
@@ -643,6 +716,9 @@ void updateparams(char* string)
 #if FEEDFORWARD
             Serial.println("cf to calibrate feedforward (cd to see calibration data, ce to see calibration extrema)");
 #endif
+#if SAVE_DATA
+            Serial.println("ew to interact with eeprom (1 to write settings, 0 to read settings)");
+#endif
             Serial.println("cl to clear integral term, setpoint, etc");
 			Serial.println("");
 		}
@@ -796,4 +872,56 @@ void calibrateFeedforward(uint16_t* readings)
         //}
     }
 }
+#endif
+
+//TODO start passing stuff by reference and use the new-fangled C++ tricks like that
+
+#if SAVE_DATA
+    void savePID(float ki, float kp, float kd)
+    {
+        EEPROM.put(KI_EEPROM_ADDRESS, ki);
+        EEPROM.put(KP_EEPROM_ADDRESS, kp);
+        EEPROM.put(KD_EEPROM_ADDRESS, kd);
+    
+    }
+    void loadPID(float* ki, float* kp, float* kd)
+    {
+        EEPROM.get(KI_EEPROM_ADDRESS, ki);
+        EEPROM.get(KP_EEPROM_ADDRESS, kp);
+        EEPROM.get(KD_EEPROM_ADDRESS, kd);
+    }
+    #if LIMITED_SETPOINT
+    void saveLimits(uint16_t minsetpoint, uint16_t maxsetpoint, uint16_t minoutput, uint16_t maxoutput)
+    {
+        EEPROM.put(MINSP_EEPROM_ADDRESS, minsetpoint);
+        EEPROM.put(MAXSP_EEPROM_ADDRESS, maxsetpoint);
+        EEPROM.put(MINOP_EEPROM_ADDRESS, minoutput);
+        EEPROM.put(MAXOP_EEPROM_ADDRESS, maxoutput);
+    }
+    void loadLimits(uint16_t* minsetpoint, uint16_t* maxsetpoint, uint16_t* minoutput, uint16_t* maxoutput)
+    {
+        EEPROM.get(MINSP_EEPROM_ADDRESS, *minsetpoint);
+        EEPROM.get(MAXSP_EEPROM_ADDRESS, *maxsetpoint);
+        EEPROM.get(MINOP_EEPROM_ADDRESS, *minoutput);
+        EEPROM.get(MAXOP_EEPROM_ADDRESS, *maxoutput);
+    
+    }
+    #endif
+    #if FEEDFORWARD
+    void saveFFdata(uint16_t* readings)
+    {
+        for(uint16_t j = 0; j < FF_CALIB_ARRAY_LENGTH; j++)
+        {
+            EEPROM.put(FFDATA_EEPROM_ADDRESS+(j*sizeof(*readings)), readings[j]);
+        }
+    }
+    void loadFFdata(uint16_t* readings)
+    {
+        for(uint16_t j = 0; j < FF_CALIB_ARRAY_LENGTH; j++)
+        {
+            EEPROM.get(FFDATA_EEPROM_ADDRESS+(j*sizeof(*readings)), readings[j]);
+        }
+        calibrateFeedforward(readings);
+    }
+    #endif
 #endif
