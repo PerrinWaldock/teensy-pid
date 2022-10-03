@@ -70,7 +70,7 @@ uint16_t maxoutput = MAX_OUTPUT;
 #endif
 
 volatile bool pidcalc = true; //flag saying to perform feedback control calc
-bool pidactive = true;      //flag saying "pid control is active"
+volatile bool pidactive = true;      //flag saying "pid control is active"
 
 #if FEEDFORWARD
     #define FEEDFORWARD_ARRAY_LENGTH 4096//65536 //MAXINPUT+1
@@ -231,22 +231,22 @@ void loop()
 				if (digitalReadFast(PIN_REFERENCE) == LOW)
 				{
                     #if FEEDFORWARD //skip the calculation on first step after changing state
-                    if(sp == setpoint)
+                    if(sp != setpointlow) //if the setpoint is not the desired setpoint
                     {
                         onlyff = true;
+                        sp = setpointlow;
                     }
-                    #endif
-					sp = setpointlow;	
+                    #endif	
 				}
 				else
 				{
                     #if FEEDFORWARD //skip the calculation on first step after changing state
-                    if(sp == setpointlow)
+                    if(sp != setpoint) //if the setpoint is not the desired setpoint
                     {
                         onlyff = true;
+                        sp = setpoint;
                     }
-                    #endif
-					sp = setpoint;			
+                    #endif			
 				}
 			#endif
 			#if !DIGITAL_INPUT && !ANALOG_INPUT
@@ -272,6 +272,7 @@ void loop()
                     #else
                     out = maxoutput;
                     #endif
+                    skipcalc = true;
                 }
             #endif
 
@@ -282,18 +283,19 @@ void loop()
             }
             else
             {
-                feedback = analogRead(PIN_INPUT); //only collects feedback
-                #if FEEDFORWRD
+                #if FEEDFORWARD
                     out = feedforward[sp];
                     if(!onlyff)
                     {
+                        feedback = analogRead(PIN_INPUT); //only collects feedback
                     #if NEGATIVE_OUTPUT
-                        out += myPID.step(sp, feedback);
-                    #else
                         out -= myPID.step(sp, feedback);
+                    #else
+                        out += myPID.step(sp, feedback);
                     #endif
                     }
                 #else
+                    feedback = analogRead(PIN_INPUT); //only collects feedback
                     out = myPID.step(sp, feedback);              
                     #if NEGATIVE_OUTPUT
                         out = flipoutput(out);
@@ -356,6 +358,10 @@ void loop()
 				Serial.print(sp);
 				Serial.print("\t f:");
 				Serial.print(feedback);
+                #if FEEDFORWARD
+                Serial.print("\t ff:");
+                Serial.print(feedforward[sp]);
+                #endif
 				Serial.print("\t o:");
 				#ifdef TIME_FEEDBACK_LOOP
 					Serial.print(out);

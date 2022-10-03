@@ -40,7 +40,7 @@
 
 #define SIGNED_OUTPUT FEEDFORWARD   //want unsigned output if no feedforward, and signed output if there is
 #define SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
-#define NEGATIVE_OUTPUT false //false for positive control
+#define NEGATIVE_OUTPUT true //false for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
 #define SAVE_DATA true  //saves calibration data and pid constants
