@@ -39,7 +39,7 @@
 #endif
 
 #define SIGNED_OUTPUT FEEDFORWARD   //want unsigned output if no feedforward, and signed output if there is
-#define SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
+#define DEFAULT_SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
 #define NEGATIVE_OUTPUT true //false for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
@@ -48,7 +48,7 @@
 
 const uint16_t MAX_OUTPUT = (1 << DAC_BITS) - 1; //maximum output value for the DAC (integer)
 const uint16_t MAX_INPUT = (1 << ADC_BITS) - 1; //maximum output value for the DAC (integer)
-const uint16_t SAMPLE_RATE_HZ = 1000000/SAMPLE_PERIOD_US;
+const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 
 #define DEFAULT_SETPOINT .5
 
