@@ -239,6 +239,8 @@ void loop()
                         onlyff = true;
                         sp = setpointlow;
                     }
+                    #else
+                        sp = setpointlow;
                     #endif	
 				}
 				else
@@ -249,6 +251,8 @@ void loop()
                         onlyff = true;
                         sp = setpoint;
                     }
+                    #else
+                        sp = setpoint;
                     #endif			
 				}
 			#endif

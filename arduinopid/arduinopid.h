@@ -24,7 +24,7 @@
 
 #define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low
 #define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE
-#define FEEDFORWARD true
+#define FEEDFORWARD false
 
 
 //sets the max PWM and ADC resolutions for the Teensy 3.2
