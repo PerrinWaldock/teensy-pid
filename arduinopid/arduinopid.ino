@@ -637,12 +637,12 @@ void updateparams(char* string)
 				Serial.print("V, ");
 				Serial.println(setpoint);
 			}
-            else if(!strcmp(string, "lf"))
-            {
-                Serial.print("Loop Frequency=");
-                Serial.print(loopRateHz);
-                Serial.println("Hz");
-            }
+      else if(!strcmp(string, "lf"))
+      {
+          Serial.print("Loop Frequency=");
+          Serial.print(loopRateHz);
+          Serial.println("Hz");
+      }
 			#if DIGITAL_INPUT
 				else if(!strcmp(string, "lp") || !strcmp(string, "lv"))
 				{
