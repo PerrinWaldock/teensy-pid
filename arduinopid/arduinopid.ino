@@ -343,7 +343,7 @@ void loop()
 					Serial.println("Incoming String Too Long");
 					inind = 0;
 				}
-				else if (instring[inind] == '\n')
+				else if (instring[inind] == '\n' || instring[inind] == '\r')
 				{
 					instring[inind] = '\0';
 					updateparams(instring);
