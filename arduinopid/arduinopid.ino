@@ -43,6 +43,8 @@ float kp=0.1, ki=45000, kd=0; //good starting point for non-feedforward
 float ki=kp*SAMPLE_RATE_HZ;
 float kd=0;*/
 //this is also the setpoint if digital input is low
+uint32_t loopRateHz = DEFAULT_SAMPLE_RATE_HZ;
+uint32_t loopPeriodUs = DEFAULT_SAMPLE_PERIOD_US;
 uint16_t setpoint = volts2int(DEFAULT_SETPOINT, ADC_BITS); //default setpoint (voltage it reads)
 #if DIGITAL_INPUT
 uint16_t setpointlow = 0;	//default low digital setpoint
@@ -84,7 +86,7 @@ volatile bool pidactive = true;      //flag saying "pid control is active"
 IntervalTimer pidTimer; //used for timing the pid feedback loop
 IntervalTimer readTimer; //used for timing the serial read code
 
-FastPID myPID(kp, ki, kd, SAMPLE_RATE_HZ, DAC_BITS, SIGNED_OUTPUT);; //feedback control object
+FastPID myPID(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);; //feedback control object
 
 //private functions
 #ifdef SERIAL_BAUD
@@ -98,10 +100,11 @@ void getFeedforwardReadings(uint16_t* readings);
 void calibrateFeedforward(uint16_t* readings);
 #endif
 
-#if SAVE_DATA
+#if SAVE_DATA //TODO also save read averages
     const uint16_t KI_EEPROM_ADDRESS=0, KP_EEPROM_ADDRESS=4, KD_EEPROM_ADDRESS=8;
-    void savePID(float ki, float kp, float kd);
-    void loadPID(float& ki, float& kp, float& kd);
+    const uint16_t LR_EEPROM_ADDRESS=20;
+    void savePID(float ki, float kp, float kd, uint32_t looprate);
+    void loadPID(float& ki, float& kp, float& kd, uint32_t& looprate);
     #if LIMITED_SETPOINT
     const uint16_t MINSP_EEPROM_ADDRESS = 12, MAXSP_EEPROM_ADDRESS = 14, MINOP_EEPROM_ADDRESS = 16, MAXOP_EEPROM_ADDRESS = 18;
     void saveLimits(uint16_t minsetpoint, uint16_t maxsetpoint, uint16_t minoutput, uint16_t maxoutput);
@@ -115,7 +118,7 @@ void calibrateFeedforward(uint16_t* readings);
 
 void saveEverything()
 {
-    savePID(ki, kp, kd);
+    savePID(ki, kp, kd, loopRateHz);
     #if LIMITED_SETPOINT
     //    saveLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
     #endif
@@ -126,7 +129,7 @@ void saveEverything()
 
 void loadEverything()
 {
-    loadPID(ki, kp, kd);
+    loadPID(ki, kp, kd, loopRateHz);
     #if LIMITED_SETPOINT
     //    loadLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
     #endif
@@ -185,7 +188,7 @@ void setup()
 	#endif
 
 	//begins pid feedback loop timer
-	pidTimer.begin(setpidcalc, SAMPLE_PERIOD_US);
+	pidTimer.begin(setpidcalc, loopPeriodUs);
 
 #if SAVE_DATA
     loadEverything();
@@ -236,6 +239,8 @@ void loop()
                         onlyff = true;
                         sp = setpointlow;
                     }
+                    #else
+                        sp = setpointlow;
                     #endif	
 				}
 				else
@@ -246,6 +251,8 @@ void loop()
                         onlyff = true;
                         sp = setpoint;
                     }
+                    #else
+                        sp = setpoint;
                     #endif			
 				}
 			#endif
@@ -278,7 +285,7 @@ void loop()
 
             if (skipcalc)
             {
-                pidTimer.begin(setpidcalc, SAMPLE_PERIOD_US);        
+                pidTimer.begin(setpidcalc, loopPeriodUs);        
                 pidcalc = true; //increase the response time by polling digital input more frequently
             }
             else
@@ -336,7 +343,7 @@ void loop()
 					Serial.println("Incoming String Too Long");
 					inind = 0;
 				}
-				else if (instring[inind] == '\n')
+				else if (instring[inind] == '\n' || instring[inind] == '\r')
 				{
 					instring[inind] = '\0';
 					updateparams(instring);
@@ -428,6 +435,15 @@ void updateparams(char* string)
 			Serial.print("V, ");
 			Serial.println(setpoint);
 		}
+        else if(!strcmp(string, "lf"))
+        {
+            loopRateHz = atoi(&(string[3]));
+            loopPeriodUs = 1000000/loopRateHz;
+            Serial.print("Loop Frequency=");
+            Serial.print(loopRateHz);
+            Serial.println("Hz");
+            updatePID=true;
+        }
 #if DIGITAL_INPUT
 		else if(!strcmp(string, "lp"))
 		{
@@ -583,7 +599,7 @@ void updateparams(char* string)
 
         if (updatePID)
         {
-            bool success = myPID.configure(kp, ki, kd, SAMPLE_RATE_HZ, DAC_BITS, SIGNED_OUTPUT);
+            bool success = myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
             myPID.clear();
     
             if(!success)
@@ -621,6 +637,12 @@ void updateparams(char* string)
 				Serial.print("V, ");
 				Serial.println(setpoint);
 			}
+      else if(!strcmp(string, "lf"))
+      {
+          Serial.print("Loop Frequency=");
+          Serial.print(loopRateHz);
+          Serial.println("Hz");
+      }
 			#if DIGITAL_INPUT
 				else if(!strcmp(string, "lp") || !strcmp(string, "lv"))
 				{
@@ -721,6 +743,7 @@ void updateparams(char* string)
 			Serial.println("kp, ki, or kd for the PID constants (floats)");
 			Serial.println("sp for the integer value of the default setpoint (int)");
 			Serial.println("sv for the voltage (in V) of the default setpoint (float)");
+            Serial.println("lf for the loop frequency (in Hz) of the feedback loop (int)");
 #if DIGITAL_INPUT
 			Serial.println("If the input pin is pulled low, then the setpoint switches to an alternate setpoint");
 			Serial.println("lp for the integer value of the alternate setpoint (int)");
@@ -903,18 +926,20 @@ void calibrateFeedforward(uint16_t* readings)
 //TODO start passing stuff by reference and use the new-fangled C++ tricks like that
 
 #if SAVE_DATA
-    void savePID(float ki, float kp, float kd)
+    void savePID(float ki, float kp, float kd, uint32_t lr)
     {
         EEPROM.put(KI_EEPROM_ADDRESS, ki);
         EEPROM.put(KP_EEPROM_ADDRESS, kp);
         EEPROM.put(KD_EEPROM_ADDRESS, kd);
+        EEPROM.put(LR_EEPROM_ADDRESS, lr);
     
     }
-    void loadPID(float& ki, float& kp, float& kd)
+    void loadPID(float& ki, float& kp, float& kd, uint32_t& lr)
     {
         EEPROM.get(KI_EEPROM_ADDRESS, ki);
         EEPROM.get(KP_EEPROM_ADDRESS, kp);
         EEPROM.get(KD_EEPROM_ADDRESS, kd);
+        EEPROM.get(LR_EEPROM_ADDRESS, lr);
     }
     #if LIMITED_SETPOINT
     void saveLimits(uint16_t minsetpoint, uint16_t maxsetpoint, uint16_t minoutput, uint16_t maxoutput)
