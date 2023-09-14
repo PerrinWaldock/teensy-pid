@@ -20,13 +20,14 @@
  * TODO print warning and sets flag if output has railed (is set equal to max output) when setpoint has not railed
  * 
  * TODO allow setting calculation period on-the-fly?
- * 
- * TODO create python interface code that uses serial to
- * -reads extrema
- * -sets setpoint
- * -sets setpoint as a fraction of extrema (probably after a calibration)
- * -checks if output has railed
  */
+
+ /*
+  * TODO
+  * -clean up code, split into multiple files
+  * -look through previous todos
+  * -(MAYBE) use one digital input to turn feedback control on/off, and use the other as a setpoint
+  */
 
 #include "arduinopid.h"
 #include <EEPROM.h>     //for permanently saving settings
@@ -37,7 +38,7 @@
 #if FEEDFORWARD
 float kp=.005, ki=1000, kd=0; //good starting point for feedforward
 #else
-float kp=0.1, ki=45000, kd=0; //good starting point for non-feedforward
+float kp=0.01, ki=100, kd=0; //good starting point for non-feedforward
 #endif
 /*float kp=1;
 float ki=kp*SAMPLE_RATE_HZ;
@@ -45,15 +46,18 @@ float kd=0;*/
 //this is also the setpoint if digital input is low
 uint32_t loopRateHz = DEFAULT_SAMPLE_RATE_HZ;
 uint32_t loopPeriodUs = DEFAULT_SAMPLE_PERIOD_US;
-uint16_t setpoint = volts2int(DEFAULT_SETPOINT, ADC_BITS); //default setpoint (voltage it reads)
+uint16_t setpoint = ADC_VOLTS2BITS(DEFAULT_SETPOINT); //default setpoint (voltage it reads)
+
 #if DIGITAL_INPUT
-uint16_t setpointlow = 0;	//default low digital setpoint
+uint16_t setpoints[INPUT_STATES];	//default low digital setpoint
+uint8_t statenumber = 0;
 #endif
-uint8_t readaverages = 4;	//number of times to average the input (hardware), default 4
+uint8_t readaveragespower = READDAVERAGESPOWER;	//number of times to average the input (hardware)
+
 
 #if LIMITED_SETPOINT
-uint16_t minsetpoint = volts2int(0.05,ADC_BITS);
-uint16_t maxsetpoint = volts2int(3.25,ADC_BITS);
+uint16_t minsetpoint = ADC_VOLTS2BITS(0.05);
+uint16_t maxsetpoint = ADC_VOLTS2BITS(3.25); //TODO update
 uint16_t minoutput = 0;
 uint16_t maxoutput = MAX_OUTPUT;
 
@@ -78,7 +82,7 @@ volatile bool pidactive = true;      //flag saying "pid control is active"
     #define FEEDFORWARD_ARRAY_LENGTH 4096//65536 //MAXINPUT+1
     #define FF_CALIB_ARRAY_LENGTH 256
     #define ffCalibOutput(x) (int)((x*((1 << DAC_BITS) - 1))/(FF_CALIB_ARRAY_LENGTH - 1))
-    #define CALIBRATION_AVERAGES 64
+    #define CALIBRATION_AVERAGES_POWER 8
     uint16_t feedforward[FEEDFORWARD_ARRAY_LENGTH];
     uint16_t ffCalib[FF_CALIB_ARRAY_LENGTH];
 #endif
@@ -144,30 +148,17 @@ void loadEverything()
 void setup()
 {
 	//sets pin states
-	pinMode(PIN_INPUT, INPUT);
-	pinMode(PIN_OUTPUT, OUTPUT);
 #if DIGITAL_INPUT
-	pinMode(PIN_REFERENCE, INPUT_PULLUP);
+	pinMode(PIN_REFERENCE0, INPUT_PULLUP);
+	pinMode(PIN_REFERENCE1, INPUT_PULLUP);
 #endif
 #if ANALOG_INPUT
 	pinMode(PIN_REFERENCE, INPUT);
-#endif
-
-	//sets averaging, resolution, etc
-	analogReadAveraging(readaverages);
+	analogReadAveraging(1 << readaveragespower);
 	analogReadResolution(ADC_BITS);
-	analogWriteResolution(DAC_BITS); 
-	
-	//sets reference voltage
-	if (REFERENCE_VOLTAGE == 1.2)
-	{
-		//could also use EXTERNAL and use an external reference voltage
-		analogReference(INTERNAL);  //sets reference voltage to 1.2
-	}
-	else
-	{
-		analogReference(DEFAULT); //3.3v
-	}
+#endif
+    initADC();
+    initDAC();
 	
 	//sets up serial
 	#ifdef SERIAL_BAUD
@@ -205,22 +196,19 @@ void setup()
 uint16_t feedback = 0;
 int32_t out = 0;
 uint16_t sp = 0;
-#if TIME_FEEDBACK_LOOP
-	uint32_t ts = 0;
-	uint32_t tss = 0;
-#endif
 
 //main loop
 void loop()
 { 
     bool skipcalc = false; //set to true if the PID calc should be skipped (if pid setpoint is out of limits)
 	//run feedback control loop
+    #if TIME_FEEDBACK_LOOP
+        elapsedMicros timeSinceLoopStart;
+        uint64_t loopTime = 0;
+    #endif
 	if(pidcalc)
 	{
        pidcalc = false; //resets flag
-		#if TIME_FEEDBACK_LOOP
-			ts = micros();
-		#endif
 		if(pidactive) //only run if pid is active TODO add logic that skips the wait for digital control and restarts the PID clock
 		{
             #if FEEDFORWARD
@@ -229,32 +217,21 @@ void loop()
 			#if ANALOG_INPUT
 				sp = analogRead(PIN_REFERENCE);	
                 setpoint = sp;		
-			#endif
-			#if DIGITAL_INPUT
-				if (digitalReadFast(PIN_REFERENCE) == LOW)
-				{
-                    #if FEEDFORWARD //skip the calculation on first step after changing state
-                    if(sp != setpointlow) //if the setpoint is not the desired setpoint
+			#elif DIGITAL_INPUT
+				uint8_t tempstatenumber = digitalReadFast(PIN_REFERENCE1) << 1 | digitalReadFast(PIN_REFERENCE0);
+				bool changedstate = tempstatenumber != statenumber; //TODO could be made faster at expense of readability
+				statenumber = tempstatenumber;
+
+				sp = setpoints[statenumber];
+				setpoint = sp;
+
+
+                #if FEEDFORWARD //skip feedback calculation on first step after changing state
+                    if(changedstate)
                     {
                         onlyff = true;
-                        sp = setpointlow;
                     }
-                    #else
-                        sp = setpointlow;
-                    #endif	
-				}
-				else
-				{
-                    #if FEEDFORWARD //skip the calculation on first step after changing state
-                    if(sp != setpoint) //if the setpoint is not the desired setpoint
-                    {
-                        onlyff = true;
-                        sp = setpoint;
-                    }
-                    #else
-                        sp = setpoint;
-                    #endif			
-				}
+				#endif
 			#endif
 			#if !DIGITAL_INPUT && !ANALOG_INPUT
 				sp = setpoint;
@@ -294,7 +271,7 @@ void loop()
                     out = feedforward[sp];
                     if(!onlyff)
                     {
-                        feedback = analogRead(PIN_INPUT); //only collects feedback
+                        feedback = readADCMultiple(readaveragespower); //only collects feedback
                     #if NEGATIVE_OUTPUT
                         out -= myPID.step(sp, feedback);
                     #else
@@ -302,7 +279,7 @@ void loop()
                     #endif
                     }
                 #else
-                    feedback = analogRead(PIN_INPUT); //only collects feedback
+                    feedback = readADCMultiple(readaveragespower); //only collects feedback
                     out = myPID.step(sp, feedback);              
                     #if NEGATIVE_OUTPUT
                         out = flipoutput(out);
@@ -315,13 +292,13 @@ void loop()
             }
           
 		}
-		analogWrite(PIN_OUTPUT, out); //still write output
+		writeDAC(out); //still write output
         if(!skipcalc)
         {
-            delayMicroseconds(1); //let analog output settle
+            //delayMicroseconds(1); //let analog output settle
         }
 		#if TIME_FEEDBACK_LOOP
-			tss = micros();
+			loopTime = timeSinceLoopStart;
 		#endif
 	}
 	#ifdef SERIAL_BAUD
@@ -359,21 +336,21 @@ void loop()
 			{
                 if(skipcalc)
                 {
-                    feedback = analogRead(PIN_INPUT); //currently don't collect input if skipping the calculation
+                    feedback = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
                 }
 				Serial.print("s:");
 				Serial.print(sp);
 				Serial.print("\t f:");
 				Serial.print(feedback);
                 #if FEEDFORWARD
-                Serial.print("\t ff:");
-                Serial.print(feedforward[sp]);
+                    Serial.print("\t ff:");
+                    Serial.print(feedforward[sp]);
                 #endif
 				Serial.print("\t o:");
 				#ifdef TIME_FEEDBACK_LOOP
 					Serial.print(out);
 					Serial.print("\t t:");
-					Serial.println(tss - ts);
+					Serial.println(loopTime);
 				#else
 					Serial.println(out);
 				#endif
@@ -421,6 +398,58 @@ void updateparams(char* string)
 			Serial.println(kd,4);
             updatePID = true;
 		}
+#if DIGITAL_INPUT
+		else if(string[0] == 's' && string[1] == 'p')
+		{	
+			uint8_t statenum = atoi(&(string[2]));
+			if (statenum < INPUT_STATES)
+			{
+				setpoints[statenum] = atoi(&(string[4]));
+				Serial.print("setpoint");
+				Serial.print(statenum);
+				Serial.print("=");
+				Serial.println(setpoints[statenum]);
+			}
+			else
+			{
+				Serial.print("input state does not exist");
+			}
+		}
+		else if(string[0] == 's' && string[1] == 'v')
+		{	
+			uint8_t statenum = atoi(&(string[2]));
+			if (statenum < INPUT_STATES)
+			{
+				setpoints[statenum] = ADC_VOLTS2BITS(atof(&(string[4])));
+				Serial.print("setpoint");
+				Serial.print(statenum);
+				Serial.print("=");
+				Serial.print(ADC_BITS2VOLTS(setpoints[statenum]),4);
+				Serial.print("V, ");
+				Serial.println(setpoints[statenum]);
+			}
+			else
+			{
+				Serial.print("input state does not exist");
+			}
+		}
+		else if(!strcmp(string, "sn"))
+		{	
+			uint8_t statenum = atoi(&(string[3]));
+			if (statenum < INPUT_STATES)
+			{
+				statenumber = statenum;
+				Serial.print("using sp");
+				Serial.print(statenumber);
+				Serial.print("=");
+				Serial.println(setpoints[statenum]);
+			}
+			else
+			{
+				Serial.print("input state does not exist");
+			}
+		}
+#else
 		else if(!strcmp(string, "sp"))
 		{
 			setpoint = atof(&(string[3]));
@@ -429,12 +458,13 @@ void updateparams(char* string)
 		}
 		else if(!strcmp(string, "sv"))
 		{
-			setpoint = volts2int(atof(&(string[3])), ADC_BITS);
+			setpoint = ADC_VOLTS2BITS(atof(&(string[3])));
 			Serial.print("setpoint=");
-			Serial.print(int2volts(setpoint, ADC_BITS),4);
+			Serial.print(ADC_BITS2VOLTS(setpoint),4);
 			Serial.print("V, ");
 			Serial.println(setpoint);
 		}
+#endif
         else if(!strcmp(string, "lf"))
         {
             loopRateHz = atoi(&(string[3]));
@@ -444,65 +474,49 @@ void updateparams(char* string)
             Serial.println("Hz");
             updatePID=true;
         }
-#if DIGITAL_INPUT
-		else if(!strcmp(string, "lp"))
-		{
-			setpointlow = atof(&(string[3]));
-			Serial.print("low setpoint=");
-			Serial.println(setpointlow);
-		}
-		else if(!strcmp(string, "lv"))
-		{
-			setpointlow = volts2int(atof(&(string[3])), ADC_BITS);
-			Serial.print("low setpoint=");
-			Serial.print(int2volts(setpointlow, ADC_BITS),4);
-			Serial.print("V, ");
-			Serial.println(setpointlow);
-		}
-#endif
 #if LIMITED_SETPOINT
 		else if(!strcmp(string, "lo"))
 		{
 			#if NEGATIVE_OUTPUT
-				minoutput = flipoutput(volts2int(atof(&(string[3])), DAC_BITS));
+				minoutput = flipoutput(DAC_VOLTS2BITS(atof(&(string[3]))));
 			#else
-				minoutput = volts2int(atof(&(string[3])), DAC_BITS);
+				minoutput = DAC_VOLTS2BITS(atof(&(string[3])));
 			#endif
 			Serial.print("Output Limits: ");
-			Serial.print(int2volts(minoutput, ADC_BITS), 4);
+			Serial.print(DAC_BITS2VOLTS(minoutput), 4);
 			Serial.print("V, ");
-			Serial.print(int2volts(maxoutput, ADC_BITS), 4);
+			Serial.print(DAC_BITS2VOLTS(maxoutput), 4);
 			Serial.print("V");
 		}
 		else if(!strcmp(string, "ho"))
 		{
 			#if NEGATIVE_OUTPUT
-				maxoutput = flipoutput(volts2int(atof(&(string[3])), DAC_BITS));
+				maxoutput = flipoutput(DAC_VOLTS2BITS(atof(&(string[3]))));
 			#else
-				maxoutput = volts2int(atof(&(string[3])), DAC_BITS);
+				maxoutput = DAC_VOLTS2BITS(atof(&(string[3])));
 			#endif			
 			Serial.print("Output Limits: ");
-			Serial.print(int2volts(minoutput, ADC_BITS), 4);
+			Serial.print(DAC_BITS2VOLTS(minoutput), 4);
 			Serial.print("V, ");
-			Serial.print(int2volts(maxoutput, ADC_BITS), 4);
+			Serial.print(DAC_BITS2VOLTS(maxoutput), 4);
 			Serial.print("V");
 		}
 		else if(!strcmp(string, "ls"))
 		{
-			minsetpoint = volts2int(atof(&(string[3])), DAC_BITS);
+			minsetpoint = DAC_VOLTS2BITS(atof(&(string[3])));
 			Serial.print("Setpoint Limits: ");
-			Serial.print(int2volts(minsetpoint, ADC_BITS), 4);
+			Serial.print(ADC_BITS2VOLTS(minsetpoint), 4);
 			Serial.print("V, ");
-			Serial.print(int2volts(maxsetpoint, ADC_BITS), 4);
+			Serial.print(ADC_BITS2VOLTS(maxsetpoint), 4);
 			Serial.print("V");
 		}
 		else if(!strcmp(string, "hs"))
 		{
-			maxsetpoint = volts2int(atof(&(string[3])), DAC_BITS);
+			maxsetpoint = DAC_VOLTS2BITS(atof(&(string[3])));
 			Serial.print("Setpoint Limits: ");
-			Serial.print(int2volts(minsetpoint, ADC_BITS), 4);
+			Serial.print(ADC_BITS2VOLTS(minsetpoint), 4);
 			Serial.print("V, ");
-			Serial.print(int2volts(maxsetpoint, ADC_BITS), 4);
+			Serial.print(ADC_BITS2VOLTS(maxsetpoint), 4);
 			Serial.print("V");
 		}
 #endif
@@ -514,15 +528,15 @@ void updateparams(char* string)
 		}
 		else if(!strcmp(string, "ra"))
 		{
-			readaverages = atoi(&(string[3]));
+			readaveragespower = atoi(&(string[3]));
 			Serial.print("read averages=");
-			Serial.println(readaverages);
-			analogReadAveraging(readaverages);
+			Serial.println(readaveragespower);
+			analogReadAveraging(readaveragespower);
 		}
 		else if(!strcmp(string, "ov"))
 		{
 			pidactive = false;
-			out = volts2int(atof(&(string[3])), DAC_BITS);
+			out = DAC_VOLTS2BITS(atof(&(string[3])));
             if (out > MAX_OUTPUT)
             {
                 Serial.print("Output out of range!");
@@ -536,7 +550,7 @@ void updateparams(char* string)
 			Serial.print("pidactive=");
 			Serial.println(pidactive);
 			Serial.print("output=");
-			Serial.print(int2volts(out, DAC_BITS), 4);
+			Serial.print(DAC_BITS2VOLTS(out), 4);
 			Serial.print("V, ");
 			Serial.println(out);
 		}
@@ -632,55 +646,63 @@ void updateparams(char* string)
 			}
 			else if(!strcmp(string, "sp") || !strcmp(string, "sv"))
 			{
+#if DIGITAL_INPUT
+				for(uint8_t i = 0; i < INPUT_STATES; i++)
+				{
+					if (i == statenumber)
+					{
+						Serial.print("-> ");
+					}
+					Serial.print("setpoint");
+					Serial.print(i);
+					Serial.print("=");
+					Serial.print(ADC_BITS2VOLTS(setpoints[i]));
+					Serial.print("V, ");
+					Serial.println(setpoints[i]);
+				}
+#else
 				Serial.print("setpoint=");
-				Serial.print(int2volts(setpoint, ADC_BITS));
+				Serial.print(ADC_BITS2VOLTS(setpoint));
 				Serial.print("V, ");
 				Serial.println(setpoint);
+#endif
 			}
+
       else if(!strcmp(string, "lf"))
       {
           Serial.print("Loop Frequency=");
           Serial.print(loopRateHz);
           Serial.println("Hz");
       }
-			#if DIGITAL_INPUT
-				else if(!strcmp(string, "lp") || !strcmp(string, "lv"))
-				{
-					Serial.print("low setpoint=");
-					Serial.print(int2volts(setpointlow, ADC_BITS));
-					Serial.print("V, ");
-					Serial.println(setpointlow);
-				}
-			#endif
 			#if LIMITED_SETPOINT
 				else if(!strcmp(string, "lo") || !strcmp(string, "ho"))
 				{
 					Serial.print("Output Limits: ");
-					Serial.print(int2volts(minoutput, ADC_BITS));
+					Serial.print(DAC_BITS2VOLTS(minoutput));
 					Serial.print("V, ");
-					Serial.print(int2volts(maxoutput, ADC_BITS));
+					Serial.print(DAC_BITS2VOLTS(maxoutput));
 					Serial.print("V");
 				}
 				else if(!strcmp(string, "ls") || !strcmp(string, "hs"))
 				{
 					Serial.print("Setpoint Limits: ");
-					Serial.print(int2volts(minsetpoint, ADC_BITS));
+					Serial.print(ADC_BITS2VOLTS(minsetpoint));
 					Serial.print("V, ");
-					Serial.print(int2volts(maxsetpoint, ADC_BITS));
+					Serial.print(ADC_BITS2VOLTS(maxsetpoint));
 					Serial.print("V");
 				}
 			#endif
 			else if(!strcmp(string, "ov"))
 			{
 				Serial.print("output=");
-				Serial.print(int2volts(out, DAC_BITS));
+				Serial.print(DAC_BITS2VOLTS(out));
 				Serial.print("V, ");
 				Serial.println(out);
 			}
 			else if(!strcmp(string, "ra"))
 			{
 				Serial.print("read averages=");
-				Serial.println(readaverages);
+				Serial.println(1<<readaveragespower);
 			}
 			else if(!strcmp(string, "pa"))
 			{
@@ -722,12 +744,12 @@ void updateparams(char* string)
                 Serial.print("min: ");
                 Serial.print(minValue);
                 Serial.print(" (");
-                Serial.print(int2volts(minValue, ADC_BITS), 4);
+                Serial.print(ADC_BITS2VOLTS(minValue), 4);
                 Serial.print(" V)\t");
                 Serial.print("max: ");
                 Serial.print(maxValue);
                 Serial.print(" (");
-                Serial.print(int2volts(maxValue, ADC_BITS), 4);
+                Serial.print(ADC_BITS2VOLTS(maxValue), 4);
                 Serial.println(" V) ");
             }
 #endif
@@ -743,12 +765,10 @@ void updateparams(char* string)
 			Serial.println("kp, ki, or kd for the PID constants (floats)");
 			Serial.println("sp for the integer value of the default setpoint (int)");
 			Serial.println("sv for the voltage (in V) of the default setpoint (float)");
-            Serial.println("lf for the loop frequency (in Hz) of the feedback loop (int)");
-#if DIGITAL_INPUT
-			Serial.println("If the input pin is pulled low, then the setpoint switches to an alternate setpoint");
-			Serial.println("lp for the integer value of the alternate setpoint (int)");
-			Serial.println("lv for the voltage (in V) of the alternate setpoint (float)");
+#if DIGITAL_INPUT //TODO
+			Serial.println("Use sv<int> or sp<int> to set the set voltage");
 #endif
+            Serial.println("lf for the loop frequency (in Hz) of the feedback loop (int)");
 #if LIMITED_OUTPUT
 			Serial.println("If the setpoint value goes outside of the limits, pid control is deactivated and the output jumps to a predetermined setpoint");
 			Serial.println("lo for the output corresponding to the low setpoint (in V) (float)");
@@ -757,7 +777,7 @@ void updateparams(char* string)
 			Serial.println("hs for the high setpoint  limit(in V) (float)");
 #endif
 			Serial.println("ov for the voltage (in V) of the output (float). Setting it disables PID control.");
-			Serial.println("ra for the number of read averages (int)");
+			Serial.println("ra for the number of read averages (averages = 2^x where x is the integer input)");
 			Serial.println("pa to enable PID control (1 to enable, 0 to latch output)");
 			Serial.println("po to print the setpoint, feedback, output, and calculation time (1 to enable, 0 to disable)");
 #if FEEDFORWARD
@@ -789,24 +809,22 @@ void setreadserial()
 #if FEEDFORWARD
 void getFeedforwardReadings(uint16_t* readings) //TODO should ramp up and down several times then average out
 {
-    analogReadAveraging(CALIBRATION_AVERAGES);
     for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
     {
         uint16_t outputValue = ffCalibOutput(i);
-        analogWrite(PIN_OUTPUT, outputValue);
+        writeDAC(outputValue);
         delayMicroseconds(2); //wait for output to stabilize
-        readings[i] = analogRead(PIN_INPUT);
+        readings[i] = readADCMultiple(CALIBRATION_AVERAGES_POWER);
     }
 
+    //repeat and average readings
     for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
     {
         uint16_t outputValue = ffCalibOutput(i);
-        analogWrite(PIN_OUTPUT, outputValue);
+        writeDAC(outputValue);
         delayMicroseconds(2); //wait for output to stabilize
-        readings[i] = (analogRead(PIN_INPUT) + readings[i])/2;
+        readings[i] = (readADCMultiple(CALIBRATION_AVERAGES_POWER) + readings[i])/2;
     }
-    analogReadAveraging(readaverages);
-
 }
 
 void calibrationExtrema(uint16_t* readings, uint16_t& maxIndex, uint16_t& minIndex)

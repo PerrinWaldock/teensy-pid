@@ -1,5 +1,7 @@
 //for the Teensy 3.6
 
+#include "adc.h"
+#include "dac.h"
 
 //defines the input and output pins 
 #if defined(__MK66FX1M0__) //3.6
@@ -8,39 +10,27 @@
     #define TEENSY35
 #elif defined(__MK20DX256__) //3.2
     #define TEENSY32
+#elif defined(__IMXRT1062__) //4.x
+    #define TEENSY41
 #endif
 
-#if defined(TEENSY36) || defined(TEENSY35)
-#define PIN_INPUT     A0
-#define PIN_OUTPUT    A21
-#define PIN_REFERENCE A14
-
-#elif defined(TEENSY32)
-//teensy 3.2
-#define PIN_INPUT     A9
-#define PIN_OUTPUT    A14
-#define PIN_REFERENCE 0
+#if defined(TEENSY41)
+    #define PIN_REFERENCE0 2
+    #define PIN_REFERENCE1 3
+    #define PIN_REFERENCE A10 //TODO currently not connected
 #endif
 
-#define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low
-#define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE
+#define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low. ANALOG_INPUT being true supercedes this
+#if DIGITAL_INPUT
+    #define INPUT_STATES 4 //TODO do this more cleverly with an array
+#endif
+
+#define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE TODO update PCB to support this
 #define FEEDFORWARD false
 
-
-//sets the max PWM and ADC resolutions for the Teensy 3.2
-#if defined(TEENSY36) || defined(TEENSY35)
-    #define REFERENCE_VOLTAGE 3.3 //can change to 1.2 volts if we want
-    #define DAC_BITS 12
-    #define ADC_BITS 13
-#elif defined(TEENSY32)
-    #define REFERENCE_VOLTAGE 3.3 //can change to 1.2 volts if we want
-    #define DAC_BITS 12
-    #define ADC_BITS 12
-#endif
-
 #define SIGNED_OUTPUT FEEDFORWARD   //want unsigned output if no feedforward, and signed output if there is
-#define DEFAULT_SAMPLE_PERIOD_US 20    //sets the PID loop frequency (too low and the code won't work properly)
-#define NEGATIVE_OUTPUT true //false for positive control
+#define DEFAULT_SAMPLE_PERIOD_US 1000   //20  //sets the PID loop frequency (too low and the code won't work properly)
+#define NEGATIVE_OUTPUT false //false for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
 #define SAVE_DATA true  //saves calibration data and pid constants
@@ -51,10 +41,11 @@ const uint16_t MAX_INPUT = (1 << ADC_BITS) - 1; //maximum output value for the D
 const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 
 #define DEFAULT_SETPOINT .5
+#define READDAVERAGESPOWER 3 //TODO fiddle with this
 
 //conversion macros
-#define int2volts(x, b) REFERENCE_VOLTAGE*x/((1 << b) - 1)
-#define volts2int(x, b) ((1 << b) - 1)*x/REFERENCE_VOLTAGE
+#define int2volts(x, b, ref) ref*x/((1 << b) - 1)
+#define volts2int(x, b, ref) ((1 << b) - 1)*x/ref
 #define flipoutput(x) MAX_OUTPUT - x
 #define bound(x, a, b) x < a ? a : x > b ? b : x
 
