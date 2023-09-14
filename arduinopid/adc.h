@@ -6,8 +6,10 @@
 #define ADC_SDO 1
 #define ADC_SCK 27
 
-#define ADC_BITS 16
-#define ADC_MAX 65535
+#ifndef ADC_BITS
+    #define ADC_BITS 16
+    const uint16_t ADC_MAX = (int32_t)(1 << ADC_BITS) - 1;
+#endif
 #define ADC_BITS2VOLTS(x) (float)x*ADC_VREF/ADC_MAX
 #define ADC_VOLTS2BITS(x) (uint16_t)(x*ADC_MAX/ADC_VREF)
 

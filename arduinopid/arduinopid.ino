@@ -45,7 +45,7 @@ float ki=kp*SAMPLE_RATE_HZ;
 float kd=0;*/
 //this is also the setpoint if digital input is low
 uint32_t loopRateHz = DEFAULT_SAMPLE_RATE_HZ;
-uint32_t loopPeriodUs = DEFAULT_SAMPLE_PERIOD_US;
+#define loopPeriodUs (uint32_t)(1000000/loopRateHz)
 uint16_t setpoint = ADC_VOLTS2BITS(DEFAULT_SETPOINT); //default setpoint (voltage it reads)
 
 #if DIGITAL_INPUT
@@ -90,7 +90,7 @@ volatile bool pidactive = true;      //flag saying "pid control is active"
 IntervalTimer pidTimer; //used for timing the pid feedback loop
 IntervalTimer readTimer; //used for timing the serial read code
 
-FastPID myPID(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);; //feedback control object
+FastPID myPID(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT); //feedback control object
 
 //private functions
 #ifdef SERIAL_BAUD
@@ -205,6 +205,8 @@ void loop()
     #if TIME_FEEDBACK_LOOP
         elapsedMicros timeSinceLoopStart;
         uint64_t loopTime = 0;
+		//uint64_t tstart = micros();
+		//uint64_t tend = 0;
     #endif
 	if(pidcalc)
 	{
@@ -299,6 +301,7 @@ void loop()
         }
 		#if TIME_FEEDBACK_LOOP
 			loopTime = timeSinceLoopStart;
+			//tend =  micros();
 		#endif
 	}
 	#ifdef SERIAL_BAUD
@@ -350,6 +353,7 @@ void loop()
 				#ifdef TIME_FEEDBACK_LOOP
 					Serial.print(out);
 					Serial.print("\t t:");
+					//Serial.printf("\t %i\t", tend - tstart);
 					Serial.println(loopTime);
 				#else
 					Serial.println(out);
@@ -378,25 +382,43 @@ void updateparams(char* string)
 	
 		if(!strcmp(string, "kp"))
 		{
-			kp = atof(&(string[3]));
-			Serial.print("kp=");
-			Serial.println(kp,4);
-            updatePID = true;
+            float tempk = atof(&(string[3]));
+            if ((tempk < KP_MIN ||tempk > KP_MAX) && tempk != 0) {
+                Serial.printf("kp=%f out of range (%f, %f)\n", tempk, KP_MIN, KP_MAX);
+            }
+            else {
+                kp = tempk;
+                Serial.print("kp=");
+                Serial.println(kp,4);
+                updatePID = true;
+            }
 		}
 		else if(!strcmp(string, "ki"))
 		{
-			ki = atof(&(string[3]));
-			Serial.print("ki=");
-			Serial.println(ki,6);
-            updatePID = true;
+            float tempk = atof(&(string[3]));
+            if ((tempk < KP_MIN*loopRateHz || tempk > KP_MAX*loopRateHz) && tempk != 0) {
+                Serial.printf("ki=%f out of range (%f, %f)\n", tempk, (float)KP_MIN*loopRateHz, (float)KP_MAX*loopRateHz);
+            }
+            else {
+				ki = tempk;
+                Serial.print("ki=");
+                Serial.println(ki,6);
+                updatePID = true;
+            }
 			//_sum = 0; //reset integral
 		}
 		else if(!strcmp(string, "kd"))
 		{
-			kd = atof(&(string[3]));
-			Serial.print("kd=");
-			Serial.println(kd,4);
-            updatePID = true;
+            float tempk = atof(&(string[3]));
+            if ((tempk < KP_MIN/loopRateHz || tempk > KP_MAX/loopRateHz) && tempk != 0) {
+                Serial.printf("kd=%f out of range (%f, %f)\n", tempk, (float)KP_MIN/loopRateHz, (float)KP_MAX/loopRateHz);
+            }
+            else {
+				kd = tempk;
+                Serial.print("kd=");
+                Serial.println(kd,8);
+                updatePID = true;
+            }
 		}
 #if DIGITAL_INPUT
 		else if(string[0] == 's' && string[1] == 'p')
@@ -468,7 +490,6 @@ void updateparams(char* string)
         else if(!strcmp(string, "lf"))
         {
             loopRateHz = atoi(&(string[3]));
-            loopPeriodUs = 1000000/loopRateHz;
             Serial.print("Loop Frequency=");
             Serial.print(loopRateHz);
             Serial.println("Hz");
@@ -547,6 +568,9 @@ void updateparams(char* string)
                 Serial.print("Output out of range!");
                 out = 0;
             }
+            Serial.println(&string[3]);
+            Serial.println(atof(&(string[3])));
+            Serial.println(DAC_VOLTS2BITS(atof(&(string[3]))));
 			Serial.print("pidactive=");
 			Serial.println(pidactive);
 			Serial.print("output=");
@@ -613,6 +637,7 @@ void updateparams(char* string)
 
         if (updatePID)
         {
+            Serial.printf("%f %f %f\n", kp, ki, kd);
             bool success = myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
             myPID.clear();
     
@@ -695,7 +720,7 @@ void updateparams(char* string)
 			else if(!strcmp(string, "ov"))
 			{
 				Serial.print("output=");
-				Serial.print(DAC_BITS2VOLTS(out));
+				Serial.print(DAC_BITS2VOLTS(out),4);
 				Serial.print("V, ");
 				Serial.println(out);
 			}

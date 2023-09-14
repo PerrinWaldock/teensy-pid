@@ -47,6 +47,7 @@ void loop(){
 			readMultipleTest();
 			Serial.println("\nWrite Test:");
 			writeTest();
+            writeDACVolts(0.5);
 		//delay(10000);
 		}
 		else{

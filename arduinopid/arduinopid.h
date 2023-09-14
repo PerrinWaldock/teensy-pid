@@ -33,7 +33,7 @@
 #define NEGATIVE_OUTPUT false //false for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
-#define SAVE_DATA true  //saves calibration data and pid constants
+#define SAVE_DATA false  //saves calibration data and pid constants
 
 
 const uint16_t MAX_OUTPUT = (1 << DAC_BITS) - 1; //maximum output value for the DAC (integer)
@@ -42,6 +42,9 @@ const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 
 #define DEFAULT_SETPOINT .5
 #define READDAVERAGESPOWER 3 //TODO fiddle with this
+
+#define KP_MIN 0.00390625
+#define KP_MAX 255.0
 
 //conversion macros
 #define int2volts(x, b, ref) ref*x/((1 << b) - 1)
