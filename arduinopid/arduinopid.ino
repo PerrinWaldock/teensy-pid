@@ -48,20 +48,20 @@ uint32_t loopRateHz = DEFAULT_SAMPLE_RATE_HZ;
 #define loopPeriodUs (uint32_t)(1000000/loopRateHz)
 uint16_t setpoint = ADC_VOLTS2BITS(DEFAULT_SETPOINT); //default setpoint (voltage it reads)
 
-#if DIGITAL_INPUT
-uint16_t setpoints[INPUT_STATES];	//default low digital setpoint
-uint8_t statenumber = 0;
+#if INPUT_MODE == DIGITAL_INPUT
+	uint16_t setpoints[INPUT_STATES];	//default low digital setpoint
+	uint8_t statenumber = 0;
 #endif
 uint8_t readaveragespower = READDAVERAGESPOWER;	//number of times to average the input (hardware)
 
 
 #if LIMITED_SETPOINT
-uint16_t minsetpoint = ADC_VOLTS2BITS(0.05);
-uint16_t maxsetpoint = ADC_VOLTS2BITS(3.25); //TODO update
-uint16_t minoutput = 0;
-uint16_t maxoutput = MAX_OUTPUT;
+	uint16_t minsetpoint = ADC_VOLTS2BITS(0.03);
+	uint16_t maxsetpoint = ADC_VOLTS2BITS(.95*ADC_VREF);
+	uint16_t minoutput = 0;
+	uint16_t maxoutput = MAX_OUTPUT;
 
-//TODO setOutputRange if not feedforward
+	//TODO setOutputRange if not feedforward
 #endif
 
 
@@ -71,7 +71,7 @@ uint16_t maxoutput = MAX_OUTPUT;
     char outstring[255];
 	uint8_t inind = 0;
 	bool serialActive = false;      //serial active flag
-	bool printout = false;        //if true, print feedback stats
+	uint8_t printout = 0;        //if true, print feedback stats
 	volatile bool readSerial = true;  //read serial flag
 #endif
 
@@ -79,8 +79,8 @@ volatile bool pidcalc = true; //flag saying to perform feedback control calc
 volatile bool pidactive = true;      //flag saying "pid control is active"
 
 #if FEEDFORWARD
-    #define FEEDFORWARD_ARRAY_LENGTH 4096//65536 //MAXINPUT+1
-    #define FF_CALIB_ARRAY_LENGTH 256
+    #define FEEDFORWARD_ARRAY_LENGTH MAX_INPUT+1//4096//65536 //MAXINPUT+1
+    #define FF_CALIB_ARRAY_LENGTH 1024//4096
     #define ffCalibOutput(x) (int)((x*((1 << DAC_BITS) - 1))/(FF_CALIB_ARRAY_LENGTH - 1))
     #define CALIBRATION_AVERAGES_POWER 8
     uint16_t feedforward[FEEDFORWARD_ARRAY_LENGTH];
@@ -124,7 +124,7 @@ void saveEverything()
 {
     savePID(ki, kp, kd, loopRateHz);
     #if LIMITED_SETPOINT
-    //    saveLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
+        saveLimits(minsetpoint, maxsetpoint, minoutput, maxoutput);
     #endif
     #if FEEDFORWARD
     saveFFdata(ffCalib);
@@ -148,11 +148,10 @@ void loadEverything()
 void setup()
 {
 	//sets pin states
-#if DIGITAL_INPUT
-	pinMode(PIN_REFERENCE0, INPUT_PULLUP);
-	pinMode(PIN_REFERENCE1, INPUT_PULLUP);
-#endif
-#if ANALOG_INPUT
+#if INPUT_MODE == DIGITAL_INPUT
+	pinMode(PIN_REFERENCE0, INPUT);
+	pinMode(PIN_REFERENCE1, INPUT);
+#elif INPUT_MODE == ANALOG_INPUT
 	pinMode(PIN_REFERENCE, INPUT);
 	analogReadAveraging(1 << readaveragespower);
 	analogReadResolution(ADC_BITS);
@@ -197,6 +196,7 @@ uint16_t feedback = 0;
 int32_t out = 0;
 uint16_t sp = 0;
 
+uint64_t loopTime;
 //main loop
 void loop()
 { 
@@ -204,7 +204,6 @@ void loop()
 	//run feedback control loop
     #if TIME_FEEDBACK_LOOP
         elapsedMicros timeSinceLoopStart;
-        uint64_t loopTime = 0;
 		//uint64_t tstart = micros();
 		//uint64_t tend = 0;
     #endif
@@ -216,10 +215,10 @@ void loop()
             #if FEEDFORWARD
             bool onlyff = false;
             #endif
-			#if ANALOG_INPUT
+			#if INPUT_MODE == ANALOG_INPUT
 				sp = analogRead(PIN_REFERENCE);	
                 setpoint = sp;		
-			#elif DIGITAL_INPUT
+			#elif INPUT_MODE == DIGITAL_INPUT
 				uint8_t tempstatenumber = digitalReadFast(PIN_REFERENCE1) << 1 | digitalReadFast(PIN_REFERENCE0);
 				bool changedstate = tempstatenumber != statenumber; //TODO could be made faster at expense of readability
 				statenumber = tempstatenumber;
@@ -234,8 +233,7 @@ void loop()
                         onlyff = true;
                     }
 				#endif
-			#endif
-			#if !DIGITAL_INPUT && !ANALOG_INPUT
+			#else
 				sp = setpoint;
 			#endif
 
@@ -301,6 +299,7 @@ void loop()
         }
 		#if TIME_FEEDBACK_LOOP
 			loopTime = timeSinceLoopStart;
+			//loopTime = micros() - tstart;
 			//tend =  micros();
 		#endif
 	}
@@ -335,7 +334,7 @@ void loop()
 				}
 			}
 			//prints parameters
-			if(printout)
+			if(printout==1)
 			{
                 if(skipcalc)
                 {
@@ -358,6 +357,22 @@ void loop()
 				#else
 					Serial.println(out);
 				#endif
+			}
+			else if(printout==2)
+			{
+                if(skipcalc)
+                {
+                    feedback = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
+                }
+				Serial.printf("s:%0.5fV\t f:%0.5fV", ADC_BITS2VOLTS(sp), ADC_BITS2VOLTS(feedback));
+                #if FEEDFORWARD
+                    Serial.printf("\t ff:%0.5fV", DAC_BITS2VOLTS(feedforward[sp]));
+                #endif
+				Serial.printf("\t o:%0.5fV", DAC_BITS2VOLTS(out));
+				#ifdef TIME_FEEDBACK_LOOP
+					Serial.printf("\t t:%ius", loopTime);
+				#endif
+				Serial.printf("\n");
 			}
 			readSerial = false;
 		}
@@ -420,7 +435,7 @@ void updateparams(char* string)
                 updatePID = true;
             }
 		}
-#if DIGITAL_INPUT
+#if INPUT_MODE == DIGITAL_INPUT
 		else if(string[0] == 's' && string[1] == 'p')
 		{	
 			uint8_t statenum = atoi(&(string[2]));
@@ -637,14 +652,16 @@ void updateparams(char* string)
 
         if (updatePID)
         {
-            Serial.printf("%f %f %f\n", kp, ki, kd);
             bool success = myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
             myPID.clear();
     
             if(!success)
             {
                 Serial.println("Error setting coefficients");
-            }        
+            }      
+			else {
+				Serial.printf("f=%f, kp=%f, ki=%f kd=%f\n", loopRateHz, kp, ki, kd);
+			}  
         }
 		
 	}
@@ -671,7 +688,7 @@ void updateparams(char* string)
 			}
 			else if(!strcmp(string, "sp") || !strcmp(string, "sv"))
 			{
-#if DIGITAL_INPUT
+#if INPUT_MODE == DIGITAL_INPUT
 				for(uint8_t i = 0; i < INPUT_STATES; i++)
 				{
 					if (i == statenumber)
@@ -790,7 +807,7 @@ void updateparams(char* string)
 			Serial.println("kp, ki, or kd for the PID constants (floats)");
 			Serial.println("sp for the integer value of the default setpoint (int)");
 			Serial.println("sv for the voltage (in V) of the default setpoint (float)");
-#if DIGITAL_INPUT //TODO
+#if INPUT_MODE == DIGITAL_INPUT //TODO
 			Serial.println("Use sv<int> or sp<int> to set the set voltage");
 #endif
             Serial.println("lf for the loop frequency (in Hz) of the feedback loop (int)");
@@ -804,7 +821,7 @@ void updateparams(char* string)
 			Serial.println("ov for the voltage (in V) of the output (float). Setting it disables PID control.");
 			Serial.println("ra for the number of read averages (averages = 2^x where x is the integer input)");
 			Serial.println("pa to enable PID control (1 to enable, 0 to latch output)");
-			Serial.println("po to print the setpoint, feedback, output, and calculation time (1 to enable, 0 to disable)");
+			Serial.println("po to print the setpoint, feedback, feedforward value (if enabled), output, and calculation time (2 to print floats, 1 to print integers, 0 to disable)");
 #if FEEDFORWARD
             Serial.println("cf to calibrate feedforward (cd to see calibration data, ce to see calibration extrema)");
 #endif

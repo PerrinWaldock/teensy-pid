@@ -20,20 +20,27 @@
     #define PIN_REFERENCE A10 //TODO currently not connected
 #endif
 
+typedef enum{
+	SOFTWARE_INPUT,
+	DIGITAL_INPUT,
+	ANALOG_INPUT
+} Input_Mode;
+
 #define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low. ANALOG_INPUT being true supercedes this
-#if DIGITAL_INPUT
+
+#define INPUT_MODE DIGITAL_INPUT
+#if INPUT_MODE == DIGITAL_INPUT
     #define INPUT_STATES 4 //TODO do this more cleverly with an array
 #endif
 
-#define ANALOG_INPUT false //if true, it overrides the setpoint value with the value from PIN_REFERENCE TODO update PCB to support this
-#define FEEDFORWARD false
+#define FEEDFORWARD true
 
 #define SIGNED_OUTPUT FEEDFORWARD   //want unsigned output if no feedforward, and signed output if there is
 #define DEFAULT_SAMPLE_PERIOD_US 1000   //20  //sets the PID loop frequency (too low and the code won't work properly)
 #define NEGATIVE_OUTPUT false //false for positive control
 #define LIMITED_SETPOINT true //pid is only active within limited setpoint range 
 
-#define SAVE_DATA false  //saves calibration data and pid constants
+#define SAVE_DATA true  //saves calibration data and pid constants
 
 
 const uint16_t MAX_OUTPUT = (1 << DAC_BITS) - 1; //maximum output value for the DAC (integer)
