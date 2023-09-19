@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#define DAC_VREF 2.75
+#define DAC_VREF 5
 
 #define DAC_CS 10
 #define DAC_SDI 11

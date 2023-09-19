@@ -17,7 +17,7 @@
 #if defined(TEENSY41)
     #define PIN_REFERENCE0 2
     #define PIN_REFERENCE1 3
-    #define PIN_REFERENCE A10 //TODO currently not connected
+    #define PIN_REFERENCE A9 //TODO currently not connected
 #endif
 
 typedef enum{
