@@ -35,6 +35,10 @@ typedef enum{
 
 #define FEEDFORWARD true
 
+#if !FEEDFORWARD
+#define CLEAR_INTEGRAL_WHEN_RAILED true
+#endif
+
 #define SIGNED_OUTPUT FEEDFORWARD   //want unsigned output if no feedforward, and signed output if there is
 #define DEFAULT_SAMPLE_PERIOD_US 1000   //20  //sets the PID loop frequency (too low and the code won't work properly)
 #define NEGATIVE_OUTPUT false //false for positive control
@@ -50,7 +54,7 @@ const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 
 #define DEFAULT_SETPOINT .5
 #define READDAVERAGESPOWER 3 //TODO fiddle with this
-#define OUTPUT_SETTLE_DELAY_US 2
+#define OUTPUT_SETTLE_DELAY_US 8
 
 #define KP_MIN 0.00390625
 #define KP_MAX 255.0
@@ -72,4 +76,4 @@ const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 #define TIME_FEEDBACK_LOOP true
 
 //logs input values
-#define RECORD_INPUT true
+#define RECORD_INPUT false

@@ -94,8 +94,9 @@ volatile bool pidactive = true;      //flag saying "pid control is active"
 		LOG_SINGLE, //log until full
 		LOG_CONTINUOUS	//continue logging, overwriting old data
 	}LogState;
-	const uint32_t INPUT_LOG_SIZE = 150000;
+	const uint32_t INPUT_LOG_SIZE = 150000/2;
 	CircularBuffer<uint16_t, INPUT_LOG_SIZE> inputLog;
+	CircularBuffer<uint16_t, INPUT_LOG_SIZE> outputLog;
 	LogState logstate = LOG_OFF;
 #endif
 
@@ -201,6 +202,7 @@ void setup()
     calibrateFeedforward(ffCalib);   
 #endif
 
+	myPID.clear(); 
 	myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
 	myPID.clear(); 
 }
@@ -214,6 +216,10 @@ uint64_t loopTime;
 //main loop
 void loop()
 { 
+	#if RECORD_INPUT
+		bool loggedin = false;
+		int32_t prevout = out;
+	#endif
     bool skipcalc = false; //set to true if the PID calc should be skipped (if pid setpoint is out of limits)
 	//run feedback control loop
     #if TIME_FEEDBACK_LOOP
@@ -223,22 +229,21 @@ void loop()
     #endif
 	if(pidcalc)
 	{
-       pidcalc = false; //resets flag
+		pidcalc = false; //resets flag
+		#if FEEDFORWARD
+			bool onlyff = false;
+		#endif
 		if(pidactive) //only run if pid is active
 		{
-            #if FEEDFORWARD
-            bool onlyff = false;
-            #endif
 			#if INPUT_MODE == ANALOG_INPUT
 				sp = analogRead(PIN_REFERENCE);	
                 setpoint = sp;		
 			#elif INPUT_MODE == DIGITAL_INPUT
-				uint8_t tempstatenumber = digitalReadFast(PIN_REFERENCE1) << 1 | digitalReadFast(PIN_REFERENCE0);
-				bool changedstate = tempstatenumber != statenumber; //TODO could be made faster at expense of readability
-				statenumber = tempstatenumber;
-
+				statenumber = digitalReadFast(PIN_REFERENCE1) << 1 | digitalReadFast(PIN_REFERENCE0);
+				int32_t oldsp = sp;
 				sp = setpoints[statenumber];
 				setpoint = sp;
+				bool changedstate = sp != oldsp;
 
 
                 #if FEEDFORWARD //skip feedback calculation on first step after changing state
@@ -261,6 +266,10 @@ void loop()
                     out = minoutput;
                     #endif
                     skipcalc = true;
+
+					#if ! FEEDFORWARD && CLEAR_INTEGRAL_WHEN_RAILED
+						myPID.clear(); //reduces overshoot
+					#endif
                     
                 }
                 else if(sp > maxsetpoint)
@@ -271,6 +280,10 @@ void loop()
                     out = maxoutput;
                     #endif
                     skipcalc = true;
+
+					#if ! FEEDFORWARD
+						myPID.clear(); //reduces overshoot
+					#endif
                 }
             #endif
 
@@ -287,34 +300,26 @@ void loop()
                     {
                         feedback = readADCMultiple(readaveragespower); //only collects feedback
 						#if RECORD_INPUT
-							switch (logstate) {
-								OFF: break;
-								SINGLE: if (inputLog.isFull()) break; //don't log data if the buffer is full
-								CONTINUOUS: inputLog.push(feedback);
-								default: break;
+							if ((logstate == LOG_SINGLE && !inputLog.isFull()) || logstate == LOG_CONTINUOUS) {
+								loggedin=true;
 							}
 						#endif
 						#if NEGATIVE_OUTPUT
 							out -= myPID.step(sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);
 						#else
-							int32_t fbout = myPID.step(sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);
-							out += fbout;
-							//Serial.printf("%i\t %i\t %i\t %i\t %i\n", sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT, fbout, out, feedforward[sp]);
+							out += myPID.step(sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);
 						#endif
                     }
                 #else
                     feedback = readADCMultiple(readaveragespower); //only collects feedback
 						#if RECORD_INPUT
-							switch (logstate) {
-								OFF: break;
-								SINGLE: if (inputLog.isFull()) break; //don't log data if the buffer is full
-								CONTINUOUS: inputLog.push(feedback);
-								default: break;
+							if ((logstate == LOG_SINGLE && !inputLog.isFull()) || logstate == LOG_CONTINUOUS) {
+								loggedin=true;
 							}
 						#endif
                     out = myPID.step(sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);     
 					#if DAC_BITS == 16
-						out = out << 1;
+						out = out << 1; //maximum output is maximum of int16_t
 					#endif         
                     #if NEGATIVE_OUTPUT
                         out = flipoutput(out);
@@ -324,15 +329,19 @@ void loop()
                 #if LIMITED_SETPOINT
     				out = bound(out, min(minoutput, maxoutput), max(minoutput, maxoutput));
     			#endif
-				delayMicroseconds(OUTPUT_SETTLE_DELAY_US);
             }
           
 		}
-		writeDAC(out); //still write output
-        if(!skipcalc)
-        {
-            //delayMicroseconds(1); //let analog output settle
-        }
+		writeDAC(out);
+		#if RECORD_INPUT
+		if (loggedin) {
+			inputLog.push((uint16_t)feedback);
+			outputLog.push((uint16_t)prevout);
+		}
+		#endif
+		if(onlyff){
+			delayMicroseconds(OUTPUT_SETTLE_DELAY_US);
+		}
 		#if TIME_FEEDBACK_LOOP
 			loopTime = timeSinceLoopStart;
 			//loopTime = micros() - tstart;
@@ -369,18 +378,23 @@ void loop()
 					inind++;
 				}
 			}
+			uint16_t adcValue;
+			if(printout) {
+                if(skipcalc || !pidactive) {
+                    adcValue = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
+                }
+				else {
+					adcValue = feedback;
+				}
+			}
 			//prints parameters
 			if(printout==1)
 			{
                 //if(skipcalc || !pidcalc) //TODO check to make sure this is the correct condition
-                if(skipcalc || !pidactive)
-				{
-                    feedback = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
-                }
 				Serial.print("s:");
 				Serial.print(sp);
 				Serial.print("\t f:");
-				Serial.print(feedback);
+				Serial.print(adcValue);
                 #if FEEDFORWARD
                     Serial.print("\t ff:");
                     Serial.print(feedforward[sp]);
@@ -397,11 +411,7 @@ void loop()
 			}
 			else if(printout==2)
 			{
-                if(skipcalc || !pidactive)
-				{
-                    feedback = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
-                }
-				Serial.printf("s:%0.5fV\t f:%0.5fV", ADC_BITS2VOLTS(sp), ADC_BITS2VOLTS(feedback));
+				Serial.printf("s:%0.5fV\t f:%0.5fV", ADC_BITS2VOLTS(sp), ADC_BITS2VOLTS(adcValue));
                 #if FEEDFORWARD
                     Serial.printf("\t ff:%0.5fV", DAC_BITS2VOLTS(feedforward[sp]));
                 #endif
@@ -658,8 +668,8 @@ void updateparams(char* string)
             Serial.print("cl=");
             if(atoi(&(string[3])))
             {
-				myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
-                myPID.clear();     
+                myPID.clear();   
+				myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);  
             }
             Serial.println(&(string[3]));
         }
@@ -713,8 +723,8 @@ void updateparams(char* string)
 
         if (updatePID)
         {
-            bool success = myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
             myPID.clear();
+            bool success = myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
     
             if(!success)
             {
@@ -862,10 +872,13 @@ void updateparams(char* string)
 #endif
 #if RECORD_INPUT
 			else if(!strcmp(string, "li")) {
-				Serial.println("Input Values (Oldest First):");
+				Serial.printf("Input Values (%i %i recorded, state %i, oldest first):\n", inputLog.size(), outputLog.size(), logstate);
+				logstate = LOG_OFF;
 				while(inputLog.size() > 0) {
-					Serial.println(inputLog.shift());
+					Serial.printf("%i, %i\n", inputLog.shift(), outputLog.shift());
 				}
+				inputLog.clear();
+				outputLog.clear();
 			}
 #endif
 			else
