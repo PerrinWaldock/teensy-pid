@@ -1,7 +1,7 @@
 #include "dac.h"
 
-#define digwr(p, s) digitalWrite(p, s) //fast write may not work well
-#define digrd(p) digitalReadFast(p)
+#define dacdigwr(p, s) digitalWrite(p, s) //fast write may not work well
+#define dacdigrd(p) digitalReadFast(p)
 
 #define WRITE_DELAY_NS 0
 
@@ -30,24 +30,24 @@ void initDAC() {
 //TODO create a continuous read function that is meant to be called repeatedly
 void writeDAC(uint16_t val){	
 	//initiate acquisition
-	digwr(DAC_CS, LOW); //enables the chip
+	dacdigwr(DAC_CS, LOW); //enables the chip
 	
 	//read out data
-	digwr(DAC_SCK, LOW);
+	dacdigwr(DAC_SCK, LOW);
 	delayNanoseconds(WRITE_DELAY_NS);
 	for(int8_t i = 15; i >= 0; i--){
-		digwr(DAC_SDI, (val >> i) & 0x0001);
-		digwr(DAC_SCK, HIGH);
+		dacdigwr(DAC_SDI, (val >> i) & 0x0001);
+		dacdigwr(DAC_SCK, HIGH);
 		#if WRITE_DELAY_NS
 			delayNanoseconds(WRITE_DELAY_NS);
 		#endif
-		digwr(DAC_SCK, LOW);
+		dacdigwr(DAC_SCK, LOW);
 		#if WRITE_DELAY_NS
 			delayNanoseconds(WRITE_DELAY_NS);
 		#endif
 	}
 	
-	digwr(DAC_CS, HIGH);
+	dacdigwr(DAC_CS, HIGH);
 }
 
 

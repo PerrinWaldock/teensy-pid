@@ -45,10 +45,12 @@ typedef enum{
 
 const uint16_t MAX_OUTPUT = (1 << DAC_BITS) - 1; //maximum output value for the DAC (integer)
 const uint16_t MAX_INPUT = (1 << ADC_BITS) - 1; //maximum output value for the DAC (integer)
+const int32_t HALF_MAX_INPUT = 1 << (ADC_BITS - 1);
 const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 
 #define DEFAULT_SETPOINT .5
 #define READDAVERAGESPOWER 3 //TODO fiddle with this
+#define OUTPUT_SETTLE_DELAY_US 2
 
 #define KP_MIN 0.00390625
 #define KP_MAX 255.0
@@ -60,7 +62,7 @@ const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 #define bound(x, a, b) x < a ? a : x > b ? b : x
 
 //sets communication parameters
-#define SERIAL_BAUD 9600 //comment this out to turn off serial control
+#define SERIAL_BAUD 2000000 //comment this out to turn off serial control
 #define INSTRING_LENGTH 80
 #define READ_PERIOD_MS 100      //how quickly it prints
 
@@ -68,3 +70,6 @@ const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 //if defined, then the microcontroller times how long it takes to do a loop
 //set to false for speed
 #define TIME_FEEDBACK_LOOP true
+
+//logs input values
+#define RECORD_INPUT true

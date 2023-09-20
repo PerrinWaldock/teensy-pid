@@ -15,15 +15,13 @@
 
 /*
  * 
- * TODO allow for separate digital and analog inputs so the setpoint can be programmed remotely
- * 
  * TODO print warning and sets flag if output has railed (is set equal to max output) when setpoint has not railed
  * 
- * TODO allow setting calculation period on-the-fly?
  */
 
  /*
   * TODO
+  - -add optional buffer that stores output values to be printed at a later date (ro=1, ro=0, ro?)
   * -clean up code, split into multiple files
   * -look through previous todos
   * -(MAYBE) use one digital input to turn feedback control on/off, and use the other as a setpoint
@@ -32,6 +30,7 @@
 #include "arduinopid.h"
 #include <EEPROM.h>     //for permanently saving settings
 #include <FastPID.h>  //prepackaged arduino feedback control library
+#include "CircularBuffer.h" //prepackaged Circular Buffer
 
 //pid feedback control parameters
 
@@ -79,12 +78,25 @@ volatile bool pidcalc = true; //flag saying to perform feedback control calc
 volatile bool pidactive = true;      //flag saying "pid control is active"
 
 #if FEEDFORWARD
-    #define FEEDFORWARD_ARRAY_LENGTH MAX_INPUT+1 //want to have a value for each and every setpoint
-    #define FF_CALIB_ARRAY_LENGTH 1024//length of array used to generate the abovearray
+    const uint32_t FEEDFORWARD_ARRAY_LENGTH = (MAX_INPUT+1); //want to have a value for each and every setpoint
+    const uint32_t FF_CALIB_ARRAY_LENGTH = (FEEDFORWARD_ARRAY_LENGTH/16);//1024//length of array used to generate the abovearray
     #define ffCalibOutput(x) (int)((x*((1 << DAC_BITS) - 1))/(FF_CALIB_ARRAY_LENGTH - 1))
     #define CALIBRATION_AVERAGES_POWER 8
+	#define CALIBRATION_SETTLE_DELAY_US 10
+	#define CALIBRATION_PRE_SETTLE_DELAY_US 10000
     uint16_t feedforward[FEEDFORWARD_ARRAY_LENGTH];
     uint16_t ffCalib[FF_CALIB_ARRAY_LENGTH];
+#endif
+
+#if RECORD_INPUT
+	typedef enum{
+		LOG_OFF, //don't log output
+		LOG_SINGLE, //log until full
+		LOG_CONTINUOUS	//continue logging, overwriting old data
+	}LogState;
+	const uint32_t INPUT_LOG_SIZE = 150000;
+	CircularBuffer<uint16_t, INPUT_LOG_SIZE> inputLog;
+	LogState logstate = LOG_OFF;
 #endif
 
 IntervalTimer pidTimer; //used for timing the pid feedback loop
@@ -194,9 +206,9 @@ void setup()
 }
 
 //feedback control variables 
-uint16_t feedback = 0;
+int32_t feedback = 0;
 int32_t out = 0;
-uint16_t sp = 0;
+int32_t sp = 0;
 
 uint64_t loopTime;
 //main loop
@@ -212,7 +224,7 @@ void loop()
 	if(pidcalc)
 	{
        pidcalc = false; //resets flag
-		if(pidactive) //only run if pid is active TODO add logic that skips the wait for digital control and restarts the PID clock
+		if(pidactive) //only run if pid is active
 		{
             #if FEEDFORWARD
             bool onlyff = false;
@@ -274,17 +286,36 @@ void loop()
                     if(!onlyff)
                     {
                         feedback = readADCMultiple(readaveragespower); //only collects feedback
+						#if RECORD_INPUT
+							switch (logstate) {
+								OFF: break;
+								SINGLE: if (inputLog.isFull()) break; //don't log data if the buffer is full
+								CONTINUOUS: inputLog.push(feedback);
+								default: break;
+							}
+						#endif
 						#if NEGATIVE_OUTPUT
-							out -= myPID.step(sp, feedback);
+							out -= myPID.step(sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);
 						#else
-							int32_t fbout = myPID.step(sp, feedback);
+							int32_t fbout = myPID.step(sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);
 							out += fbout;
-							//Serial.printf("%i %i %i %i\n", sp, feedback, fbout, out, feedforward[sp]);
+							//Serial.printf("%i\t %i\t %i\t %i\t %i\n", sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT, fbout, out, feedforward[sp]);
 						#endif
                     }
                 #else
                     feedback = readADCMultiple(readaveragespower); //only collects feedback
-                    out = myPID.step(sp, feedback);              
+						#if RECORD_INPUT
+							switch (logstate) {
+								OFF: break;
+								SINGLE: if (inputLog.isFull()) break; //don't log data if the buffer is full
+								CONTINUOUS: inputLog.push(feedback);
+								default: break;
+							}
+						#endif
+                    out = myPID.step(sp - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);     
+					#if DAC_BITS == 16
+						out = out << 1;
+					#endif         
                     #if NEGATIVE_OUTPUT
                         out = flipoutput(out);
                     #endif
@@ -293,6 +324,7 @@ void loop()
                 #if LIMITED_SETPOINT
     				out = bound(out, min(minoutput, maxoutput), max(minoutput, maxoutput));
     			#endif
+				delayMicroseconds(OUTPUT_SETTLE_DELAY_US);
             }
           
 		}
@@ -340,8 +372,9 @@ void loop()
 			//prints parameters
 			if(printout==1)
 			{
-                if(skipcalc)
-                {
+                //if(skipcalc || !pidcalc) //TODO check to make sure this is the correct condition
+                if(skipcalc || !pidactive)
+				{
                     feedback = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
                 }
 				Serial.print("s:");
@@ -364,8 +397,8 @@ void loop()
 			}
 			else if(printout==2)
 			{
-                if(skipcalc)
-                {
+                if(skipcalc || !pidactive)
+				{
                     feedback = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
                 }
 				Serial.printf("s:%0.5fV\t f:%0.5fV", ADC_BITS2VOLTS(sp), ADC_BITS2VOLTS(feedback));
@@ -667,6 +700,12 @@ void updateparams(char* string)
             }
         }
 #endif
+#if RECORD_INPUT
+		else if (!strcmp(string, "li")) {
+			logstate = (LogState)atoi(&(string[3]));
+			Serial.printf("li=%i\n", logstate);
+		}
+#endif
 		else
 		{
 			Serial.println("Invalid Command");
@@ -821,6 +860,14 @@ void updateparams(char* string)
                 Serial.println(" V) ");
             }
 #endif
+#if RECORD_INPUT
+			else if(!strcmp(string, "li")) {
+				Serial.println("Input Values (Oldest First):");
+				while(inputLog.size() > 0) {
+					Serial.println(inputLog.shift());
+				}
+			}
+#endif
 			else
 			{
 		    	Serial.println("Invalid Command");
@@ -854,6 +901,9 @@ void updateparams(char* string)
 #if SAVE_DATA
             Serial.println("ew to interact with eeprom (1 to write settings, 0 to read settings)");
 #endif
+#if RECORD_INPUT
+			Serial.printf("li to log input -- %i to turn off, %i to log until full, %i to log continuously, li? to print and clear the log\n", LOG_OFF, LOG_SINGLE, LOG_CONTINUOUS);
+#endif
             Serial.println("cl to clear integral term, setpoint, etc");
 			Serial.println("");
 		}
@@ -877,20 +927,23 @@ void setreadserial()
 #if FEEDFORWARD
 void getFeedforwardReadings(uint16_t* readings) //TODO should ramp up and down several times then average out
 {
+	writeDAC(0);
+	delayMicroseconds(CALIBRATION_PRE_SETTLE_DELAY_US);
     for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
     {
         uint16_t outputValue = ffCalibOutput(i);
         writeDAC(outputValue);
-        delayMicroseconds(2); //wait for output to stabilize
+        delayMicroseconds(CALIBRATION_SETTLE_DELAY_US); //wait for output to stabilize
         readings[i] = readADCMultiple(CALIBRATION_AVERAGES_POWER);
     }
 
-    //repeat and average readings
-    for(uint16_t i = 0; i < FF_CALIB_ARRAY_LENGTH; i++)
+    //repeat and average readings (this time from opposite direction)
+	delayMicroseconds(CALIBRATION_PRE_SETTLE_DELAY_US);
+    for(int32_t i = FF_CALIB_ARRAY_LENGTH; i >= 0; i--)
     {
         uint16_t outputValue = ffCalibOutput(i);
         writeDAC(outputValue);
-        delayMicroseconds(2); //wait for output to stabilize
+        delayMicroseconds(CALIBRATION_SETTLE_DELAY_US); //wait for output to stabilize
         readings[i] = (readADCMultiple(CALIBRATION_AVERAGES_POWER) + readings[i])/2;
     }
 }

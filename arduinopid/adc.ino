@@ -3,8 +3,8 @@
 
 #define CALIBRATE_CLOCKS 1024
 
-#define digwr(p, s) digitalWriteFast(p, s)
-#define digrd(p) digitalReadFast(p)
+#define adcdigwr(p, s) digitalWriteFast(p, s)
+#define adcdigrd(p) digitalReadFast(p)
 
 /*
  * NOTE: only one SPI controller can be used at a time. However, it might work to create a bitbanged interface... 
@@ -51,20 +51,20 @@ uint16_t readADCnoAcq(){
 	uint16_t retval = 0;
 	
 	//initiate conversion
-	digwr(ADC_CNVST, HIGH); //ensure rising edge 
+	adcdigwr(ADC_CNVST, HIGH); //ensure rising edge 
 	delayNanoseconds(CONVERSION_TIME_NS); //TODO need to test quality of this function
 	
 	//read out data
-	digwr(ADC_SCK, LOW);
-	digwr(ADC_CNVST, LOW);
+	adcdigwr(ADC_SCK, LOW);
+	adcdigwr(ADC_CNVST, LOW);
 	delayNanoseconds(WAIT_TIME_NS);
 	for(int8_t i = 15; i >= 0; i--){
-		digwr(ADC_SCK, HIGH);
+		adcdigwr(ADC_SCK, HIGH);
 		#if CLOCK_DELAY_NS
 			delayNanoseconds(CLOCK_DELAY_NS);
 		#endif
-		retval |= digrd(ADC_SDO) << i;
-		digwr(ADC_SCK, LOW);
+		retval |= adcdigrd(ADC_SDO) << i;
+		adcdigwr(ADC_SCK, LOW);
 		#if CLOCK_DELAY_NS
 			delayNanoseconds(CLOCK_DELAY_NS);
 		#endif
@@ -78,7 +78,7 @@ uint16_t readADCnoAcq(){
 uint16_t readADC(){
 	
 	//initiate acquisition
-	digwr(ADC_CNVST, LOW); //ensure rising edge
+	adcdigwr(ADC_CNVST, LOW); //ensure rising edge
 	delayNanoseconds(ACQUISITION_TIME_NS);
 
 	return readADCnoAcq();
@@ -109,23 +109,23 @@ float readADCVolts(){
 
 void calibrateADC(){
 	//initiate acquisition
-	digwr(ADC_CNVST, LOW); //ensure rising edge
+	adcdigwr(ADC_CNVST, LOW); //ensure rising edge
 	delayNanoseconds(ACQUISITION_TIME_NS); //TODO need to test quality of this function
 	
 	//initiate conversion
-	digwr(ADC_CNVST, HIGH); //ensure rising edge 
+	adcdigwr(ADC_CNVST, HIGH); //ensure rising edge 
 	delayNanoseconds(CONVERSION_TIME_NS); //TODO need to test quality of this function
 	
 	//send calibrate command
-	digwr(ADC_SCK, LOW);
-	digwr(ADC_CNVST, LOW);
+	adcdigwr(ADC_SCK, LOW);
+	adcdigwr(ADC_CNVST, LOW);
 	delayNanoseconds(10);
 	for(int16_t i = 0; i < CALIBRATE_CLOCKS; i++){
-		digwr(ADC_SCK, HIGH);
+		adcdigwr(ADC_SCK, HIGH);
 		#if CLOCK_DELAY_NS
 			delayNanoseconds(CLOCK_DELAY_NS);
 		#endif
-		digwr(ADC_SCK, LOW);
+		adcdigwr(ADC_SCK, LOW);
 		#if CLOCK_DELAY_NS
 			delayNanoseconds(CLOCK_DELAY_NS);
 		#endif
@@ -134,13 +134,13 @@ void calibrateADC(){
 	Serial.println("waiting for calibration to finish...");
 	
 	elapsedMillis calibtime; //todo change calibtime to 650
-	while(digrd(ADC_SDO) == LOW && calibtime < 2000); //wait for calibration to finish
-	if(digrd(ADC_SDO) == LOW){
+	while(adcdigrd(ADC_SDO) == LOW && calibtime < 2000); //wait for calibration to finish
+	if(adcdigrd(ADC_SDO) == LOW){
 		Serial.println("Calibration Failed!");
 	}
 	else{
 		Serial.println("Calibration Succeeded!");
 	}
 	
-	digwr(ADC_CNVST, HIGH);
+	adcdigwr(ADC_CNVST, HIGH);
 }
