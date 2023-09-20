@@ -66,7 +66,7 @@ const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 #define bound(x, a, b) x < a ? a : x > b ? b : x
 
 //sets communication parameters
-#define SERIAL_BAUD 2000000 //comment this out to turn off serial control
+#define SERIAL_BAUD 1000000 //comment this out to turn off serial control
 #define INSTRING_LENGTH 80
 #define READ_PERIOD_MS 100      //how quickly it prints
 

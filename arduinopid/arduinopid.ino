@@ -586,7 +586,7 @@ void updateparams(char* string)
 			Serial.print(DAC_BITS2VOLTS(minoutput), 4);
 			Serial.print("V, ");
 			Serial.print(DAC_BITS2VOLTS(maxoutput), 4);
-			Serial.print("V");
+			Serial.print("V\n");
 		}
 		else if(!strcmp(string, "ho"))
 		{
@@ -599,7 +599,7 @@ void updateparams(char* string)
 			Serial.print(DAC_BITS2VOLTS(minoutput), 4);
 			Serial.print("V, ");
 			Serial.print(DAC_BITS2VOLTS(maxoutput), 4);
-			Serial.print("V");
+			Serial.print("V\n");
 		}
 		else if(!strcmp(string, "ls"))
 		{
@@ -608,7 +608,7 @@ void updateparams(char* string)
 			Serial.print(ADC_BITS2VOLTS(minsetpoint), 4);
 			Serial.print("V, ");
 			Serial.print(ADC_BITS2VOLTS(maxsetpoint), 4);
-			Serial.print("V");
+			Serial.print("V\n");
 		}
 		else if(!strcmp(string, "hs"))
 		{
@@ -617,7 +617,7 @@ void updateparams(char* string)
 			Serial.print(ADC_BITS2VOLTS(minsetpoint), 4);
 			Serial.print("V, ");
 			Serial.print(ADC_BITS2VOLTS(maxsetpoint), 4);
-			Serial.print("V");
+			Serial.print("V\n");
 		}
 #endif
 		else if(!strcmp(string, "pa"))
@@ -798,15 +798,15 @@ void updateparams(char* string)
 					Serial.print(DAC_BITS2VOLTS(minoutput));
 					Serial.print("V, ");
 					Serial.print(DAC_BITS2VOLTS(maxoutput));
-					Serial.print("V");
+					Serial.print("V\n");
 				}
 				else if(!strcmp(string, "ls") || !strcmp(string, "hs"))
 				{
 					Serial.print("Setpoint Limits: ");
-					Serial.print(ADC_BITS2VOLTS(minsetpoint));
+					Serial.print(ADC_BITS2VOLTS(minsetpoint), 4);
 					Serial.print("V, ");
-					Serial.print(ADC_BITS2VOLTS(maxsetpoint));
-					Serial.print("V");
+					Serial.print(ADC_BITS2VOLTS(maxsetpoint), 4);
+					Serial.print("V\n");
 				}
 			#endif
 			else if(!strcmp(string, "ov"))
@@ -899,8 +899,8 @@ void updateparams(char* string)
             Serial.println("lf for the loop frequency (in Hz) of the feedback loop (int)");
 #if LIMITED_SETPOINT
 			Serial.println("If the setpoint value goes outside of the limits, pid control is deactivated and the output jumps to a predetermined setpoint");
-			Serial.println("lo for the output corresponding to the low setpoint (in V) (float)");
-			Serial.println("ho for the output corresponding to the high setpoint (in V) (float)");
+			Serial.println("lo for the lower output limit (in V) (float)");
+			Serial.println("ho for the upper output limit (in V) (float)");
 			Serial.println("ls for the low setpoint limit (in V) (float)");
 			Serial.println("hs for the high setpoint  limit(in V) (float)");
 #endif
@@ -1066,7 +1066,7 @@ void calibrateFeedforward(uint16_t* readings)
             }
 
             #if LIMITED_SETPOINT
-                minsetpoint = 1.5*minValue + 1;
+                minsetpoint = 2*minValue + 1;
                 maxsetpoint = .98*maxValue - 1;
                 feedforward[desired] = bound(feedforward[desired], min(minoutput, maxoutput), max(minoutput, maxoutput));
             #endif
