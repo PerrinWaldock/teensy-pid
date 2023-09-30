@@ -2,9 +2,9 @@
 
 #define DAC_VREF 5
 
-#define DAC_CS 10
-#define DAC_SDI 11
-#define DAC_SCK 14
+#define DAC_CS 41//10
+#define DAC_SDI 40//11
+#define DAC_SCK 39//14
 
 #ifndef DAC_BITS
     #define DAC_BITS 16

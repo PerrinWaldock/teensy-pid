@@ -100,6 +100,10 @@ volatile bool pidactive = true;      //flag saying "pid control is active"
 	LogState logstate = LOG_OFF;
 #endif
 
+#if INPUT_MODE == ANALOG_INPUT
+	#define readAnalogReference() analogRead(PIN_REFERENCE) << (ADC_BITS - ANALOGREFERENCERESOLUTION);
+#endif
+
 IntervalTimer pidTimer; //used for timing the pid feedback loop
 IntervalTimer readTimer; //used for timing the serial read code
 
@@ -166,8 +170,8 @@ void setup()
 	pinMode(PIN_REFERENCE1, INPUT);
 #elif INPUT_MODE == ANALOG_INPUT
 	pinMode(PIN_REFERENCE, INPUT);
-	analogReadAveraging(1 << readaveragespower);
-	analogReadResolution(ADC_BITS);
+	analogReadAveraging(ANALOGREADAVERAGES);
+	analogReadResolution(ANALOGREFERENCERESOLUTION);
 #endif
     initADC();
     initDAC();
@@ -236,7 +240,7 @@ void loop()
 		if(pidactive) //only run if pid is active
 		{
 			#if INPUT_MODE == ANALOG_INPUT
-				sp = analogRead(PIN_REFERENCE);	
+				sp = readAnalogReference();	
                 setpoint = sp;		
 			#elif INPUT_MODE == DIGITAL_INPUT
 				statenumber = digitalReadFast(PIN_REFERENCE1) << 1 | digitalReadFast(PIN_REFERENCE0);
@@ -379,9 +383,13 @@ void loop()
 				}
 			}
 			uint16_t adcValue;
+			uint16_t setpointvalue = sp;
 			if(printout) {
                 if(skipcalc || !pidactive) {
                     adcValue = readADCMultiple(readaveragespower); //currently don't collect input if skipping the calculation
+					#if INPUT_MODE == ANALOG_INPUT
+						setpointvalue = readAnalogReference();	
+					#endif
                 }
 				else {
 					adcValue = feedback;
@@ -392,12 +400,12 @@ void loop()
 			{
                 //if(skipcalc || !pidcalc) //TODO check to make sure this is the correct condition
 				Serial.print("s:");
-				Serial.print(sp);
+				Serial.print(setpointvalue);
 				Serial.print("\t f:");
 				Serial.print(adcValue);
                 #if FEEDFORWARD
                     Serial.print("\t ff:");
-                    Serial.print(feedforward[sp]);
+                    Serial.print(feedforward[setpointvalue]);
                 #endif
 				Serial.print("\t o:");
 				#ifdef TIME_FEEDBACK_LOOP
@@ -411,9 +419,9 @@ void loop()
 			}
 			else if(printout==2)
 			{
-				Serial.printf("s:%0.5fV\t f:%0.5fV", ADC_BITS2VOLTS(sp), ADC_BITS2VOLTS(adcValue));
+				Serial.printf("s:%0.5fV\t f:%0.5fV", ADC_BITS2VOLTS(setpointvalue), ADC_BITS2VOLTS(adcValue));
                 #if FEEDFORWARD
-                    Serial.printf("\t ff:%0.5fV", DAC_BITS2VOLTS(feedforward[sp]));
+                    Serial.printf("\t ff:%0.5fV", DAC_BITS2VOLTS(feedforward[setpointvalue]));
                 #endif
 				Serial.printf("\t o:%0.5fV", DAC_BITS2VOLTS(out));
 				#ifdef TIME_FEEDBACK_LOOP
@@ -631,7 +639,7 @@ void updateparams(char* string)
 			readaveragespower = atoi(&(string[3]));
 			Serial.print("read averages=");
 			Serial.println(1<<readaveragespower);
-			analogReadAveraging(1<<readaveragespower);
+			analogReadAveraging(ANALOGREADAVERAGES);
 		}
 		else if(!strcmp(string, "ov"))
 		{

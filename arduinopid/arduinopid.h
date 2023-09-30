@@ -15,9 +15,9 @@
 #endif
 
 #if defined(TEENSY41)
-    #define PIN_REFERENCE0 2
-    #define PIN_REFERENCE1 3
-    #define PIN_REFERENCE A9 //TODO currently not connected
+    #define PIN_REFERENCE0 24//2
+    #define PIN_REFERENCE1 25//3
+    #define PIN_REFERENCE A11 //same pin as digital input 0
 #endif
 
 typedef enum{
@@ -28,7 +28,7 @@ typedef enum{
 
 #define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low. ANALOG_INPUT being true supercedes this
 
-#define INPUT_MODE DIGITAL_INPUT
+#define INPUT_MODE ANALOG_INPUT//DIGITAL_INPUT
 #if INPUT_MODE == DIGITAL_INPUT
     #define INPUT_STATES 4 //TODO do this more cleverly with an array
 #endif
@@ -53,7 +53,11 @@ const int32_t HALF_MAX_INPUT = 1 << (ADC_BITS - 1);
 const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 
 #define DEFAULT_SETPOINT .5
-#define READDAVERAGESPOWER 3 //TODO fiddle with this
+#define READDAVERAGESPOWER 3 //TODO separate feedback and setpoint read averages
+#if INPUT_MODE == ANALOG_INPUT
+	#define ANALOGREADAVERAGES 1 //
+	#define ANALOGREFERENCERESOLUTION 12
+#endif
 #define OUTPUT_SETTLE_DELAY_US 8
 
 #define KP_MIN 0.00390625

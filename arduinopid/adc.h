@@ -2,9 +2,9 @@
 
 #define ADC_VREF 5
 
-#define ADC_CNVST 28
-#define ADC_SDO 1
-#define ADC_SCK 27
+#define ADC_CNVST 30 //28
+#define ADC_SDO 31 //1
+#define ADC_SCK 32 //27
 
 #ifndef ADC_BITS
     #define ADC_BITS 16
