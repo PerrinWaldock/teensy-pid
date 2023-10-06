@@ -28,7 +28,7 @@ typedef enum{
 
 #define DIGITAL_INPUT true //if true, then it will go to setpoint if PIN_REFERENCE is high, and setpointlow if PIN_REFERENCE is low. ANALOG_INPUT being true supercedes this
 
-#define INPUT_MODE ANALOG_INPUT//DIGITAL_INPUT
+#define INPUT_MODE DIGITAL_INPUT//DIGITAL_INPUT
 #if INPUT_MODE == DIGITAL_INPUT
     #define INPUT_STATES 4 //TODO do this more cleverly with an array
 #endif

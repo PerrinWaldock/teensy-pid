@@ -28,8 +28,8 @@
   */
 
 #include "arduinopid.h"
+#include "fastpidclone.h"  //prepackaged arduino feedback control library
 #include <EEPROM.h>     //for permanently saving settings
-#include <FastPID.h>  //prepackaged arduino feedback control library
 #include "CircularBuffer.h" //prepackaged Circular Buffer
 
 //pid feedback control parameters
@@ -639,7 +639,9 @@ void updateparams(char* string)
 			readaveragespower = atoi(&(string[3]));
 			Serial.print("read averages=");
 			Serial.println(1<<readaveragespower);
+#if INPUT_MODE == ANALOG_INPUT
 			analogReadAveraging(ANALOGREADAVERAGES);
+#endif
 		}
 		else if(!strcmp(string, "ov"))
 		{
