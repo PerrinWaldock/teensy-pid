@@ -28,7 +28,6 @@
   */
 
 #include "arduinopid.h"
-#include "fastpidclone.h"  //prepackaged arduino feedback control library
 #include <EEPROM.h>     //for permanently saving settings
 #include "CircularBuffer.h" //prepackaged Circular Buffer
 
@@ -209,6 +208,9 @@ void setup()
 	myPID.clear(); 
 	myPID.configure(kp, ki, kd, loopRateHz, DAC_BITS, SIGNED_OUTPUT);
 	myPID.clear(); 
+
+
+	Serial.println(PARAM_MULT);
 }
 
 //feedback control variables 

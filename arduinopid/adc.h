@@ -1,10 +1,8 @@
 #include <stdint.h>
 
-#define ADC_VREF 5
+#include "pins.h"
 
-#define ADC_CNVST 30 //28
-#define ADC_SDO 31 //1
-#define ADC_SCK 32 //27
+#define ADC_VREF 5
 
 #ifndef ADC_BITS
     #define ADC_BITS 16

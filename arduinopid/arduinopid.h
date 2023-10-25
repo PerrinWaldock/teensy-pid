@@ -2,6 +2,10 @@
 
 #include "adc.h"
 #include "dac.h"
+#include "pins.h"
+
+#include "fastpidclone.h"  //prepackaged arduino feedback control library
+
 
 //defines the input and output pins 
 #if defined(__MK66FX1M0__) //3.6
@@ -11,14 +15,10 @@
 #elif defined(__MK20DX256__) //3.2
     #define TEENSY32
 #elif defined(__IMXRT1062__) //4.x
-    #define TEENSY41
+    #define TEENSY40
 #endif
 
-#if defined(TEENSY41)
-    #define PIN_REFERENCE0 24//2
-    #define PIN_REFERENCE1 25//3
-    #define PIN_REFERENCE A11 //same pin as digital input 0
-#endif
+
 
 typedef enum{
 	SOFTWARE_INPUT,
@@ -60,8 +60,8 @@ const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
 #endif
 #define OUTPUT_SETTLE_DELAY_US 8
 
-#define KP_MIN 0.00390625
-#define KP_MAX 255.0
+const float KP_MIN = 1/PARAM_MULT;
+const float KP_MAX = PARAM_MAX;
 
 //conversion macros
 #define int2volts(x, b, ref) ref*x/((1 << b) - 1)
