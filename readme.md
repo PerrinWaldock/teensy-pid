@@ -89,4 +89,7 @@ Higher clock rates may disrupt communication with the ADC and DAC. To improve th
 * R21, R22, R23, R24, R25, R26, R30, R31, and R32 may need to be adjusted to a smaller value to accommodate higher clock rates. Choose values that are as large as possible while still allowing the clock to remain high for the specified time in the ADC and DAC datasheets.
 
 ### Testing
-The latest version of the PCB (V3.0) has not been tested as a feedback controller
+The latest version of the PCB (V3.0) has not been tested as a feedback controller for a laser intensity lock.
+
+### New Algorithms
+This controller should be usable for a gradient-descent saturated adsorption lock algorithm.
