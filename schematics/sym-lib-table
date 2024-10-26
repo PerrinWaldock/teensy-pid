@@ -1,0 +1,7 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Teensy")(type "Legacy")(uri "${KIPRJMOD}/libraries/teensy.lib")(options "")(descr ""))
+  (lib (name "Misc")(type "KiCad")(uri "${KIPRJMOD}/libraries/Misc.kicad_sym")(options "")(descr ""))
+  (lib (name "MAX5541")(type "KiCad")(uri "${KIPRJMOD}/libraries/MAX5541CSA_T/MAX5541CSA_T.kicad_sym")(options "")(descr ""))
+  (lib (name "Jakub")(type "Legacy")(uri "${KIPRJMOD}/libraries/kicad-jakub-lib/jakub.lib")(options "")(descr ""))
+)

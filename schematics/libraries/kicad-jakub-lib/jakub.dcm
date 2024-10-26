@@ -1,0 +1,523 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP 23LVC1024
+D 1Mbit serial NVRAM
+K NVRAM, SPI, battery
+F 23LVC1024.pdf
+$ENDCMP
+#
+$CMP 74AC11004
+D Hex Inverter
+K ACMOS not inv
+$ENDCMP
+#
+$CMP 74AHCT245
+D Octal BUS Transceivers, 3 State out
+K TTL BUS 3State
+F 74AHC_AHCT245.pdf
+$ENDCMP
+#
+$CMP 74AHCT367
+D Hex Bus Driver 3 state Out
+K TTL Buffer BUS 3State
+$ENDCMP
+#
+$CMP 74AUC2G04
+D Dual NOT Gate, Low-Voltage CMOS
+K Dual Gate NOT LVC CMOS
+F http://www.ti.com/lit/sg/scyt129e/scyt129e.pdf
+$ENDCMP
+#
+$CMP 74HC125
+D Quad buffer 3 State out
+K TTL buffer 3State
+$ENDCMP
+#
+$CMP 74HC1G02
+D Quad Nor2
+K TTL Nor2
+$ENDCMP
+#
+$CMP 74HCT1G125
+D Single Bus Buffer Gate With 3-State Output
+$ENDCMP
+#
+$CMP 74LVC1G123
+D Single retriggerable Monostable
+K monostable
+$ENDCMP
+#
+$CMP 74LVC1G3157
+D SPDT Analog Swich, Low-Voltage CMOS
+K SPDT Analog Switch CMOS
+F http://www.ti.com/lit/sg/scyt129e/scyt129e.pdf
+$ENDCMP
+#
+$CMP 74LVC1G332
+D Single OR 3 Input Gate, Low-Voltage CMOS
+K Single Gate OR triple LVC CMOS
+F http://www.ti.com/lit/sg/scyt129e/scyt129e.pdf
+$ENDCMP
+#
+$CMP 74LVC1G80
+D Single D Flip-Flop Inverted Output, Low-Voltage CMOS
+K Single D Flip-Flop CMOS
+F http://www.ti.com/lit/sg/scyt129e/scyt129e.pdf
+$ENDCMP
+#
+$CMP 74LVC1T45
+D Dual supply translating transceiver; 3-state
+K Transceiver, buffer, dual voltage
+F http://cache.nxp.com/documents/data_sheet/74LVC_LVCH1T45.pdf
+$ENDCMP
+#
+$CMP 74LVC2G04
+D Dual NOT Gate, Low-Voltage CMOS
+K Dual Gate NOT LVC CMOS
+F http://www.ti.com/lit/sg/scyt129e/scyt129e.pdf
+$ENDCMP
+#
+$CMP 74LVC3G04
+D Triple NOT Gate, Low-Voltage CMOS
+K Triple Gate NOT LVC CMOS
+F http://www.ti.com/lit/sg/scyt129e/scyt129e.pdf
+$ENDCMP
+#
+$CMP 74LVC3GU04
+D 74LVC3G04, Triple NOT Gate, Low-Voltage CMOS
+K Triple Gate NOT LVC CMOS
+F http://www.ti.com/lit/sg/scyt129e/scyt129e.pdf
+$ENDCMP
+#
+$CMP AD8000
+D 1.5 GHz ultrahigh speed op amp
+$ENDCMP
+#
+$CMP ADA4817-1
+D Low Noise, 1 GHz FastFET Op Amps, SO-8
+K single opamp
+F https://www.analog.com/media/en/technical-documentation/data-sheets/ADA4817-1_4817-2.pdf
+$ENDCMP
+#
+$CMP ADG849
+D SPDT analog switch
+K analog switch, audio
+F ADG849.pdf
+$ENDCMP
+#
+$CMP ADP2381
+D 20 V, 6 A Synchronous Step-Down Regulator with Low-Side Driver
+K Voltage regulator, Power
+F ADP2381.pdf
+$ENDCMP
+#
+$CMP ARDUINO_DUE_SHIELD
+D Arduino Due Shield
+$ENDCMP
+#
+$CMP ARDUINO_MINI
+D Arduino Pro Mini v10
+$ENDCMP
+#
+$CMP ARDUINO_MKR1000
+D Powerful board that combines the functionality of the Zero and the Wi-Fi Shield
+$ENDCMP
+#
+$CMP AT42QT1011
+D One-channel Touch Sensor IC
+K Capacitive Touch
+F AT42QT1011.pdf
+$ENDCMP
+#
+$CMP BAR43C
+D Double diode Shottky (common-cathode)
+K DEV DIODE
+$ENDCMP
+#
+$CMP BAR43S
+D Double diode Shottky (Serie)
+K DEV DIODE
+$ENDCMP
+#
+$CMP DAC101S101
+D SPI 10-bit DAC
+K 10-Bit Micro Power, RRO Digital-to-Analog Converter
+F dac101s101.pdf
+$ENDCMP
+#
+$CMP DAC7744
+D 16-Bit, Quad Voltage Output DIGITAL-TO-ANALOG CONVERTER
+$ENDCMP
+#
+$CMP DMG6602SVTQ-7
+D 30V Vds COMPLEMENTARY PAIR ENHANCEMENT MODE MOSFET
+K Dual N-Channel P-Channel MOSFET
+$ENDCMP
+#
+$CMP DRV103
+D PWM LOW-SIDE DRIVER (1.5A and 3A) for Solenoids, Coils, Valves, Heaters, and Lamps
+K PWM, power, driver
+F DRV103.pdf
+$ENDCMP
+#
+$CMP DS1338
+D I2C RTC
+K RTC, NV RAM, Real Time Clock
+F DS1338.pdf
+$ENDCMP
+#
+$CMP DS1339
+D I2C Serial Real-Time Clock
+F DS1338.pdf
+$ENDCMP
+#
+$CMP FDS4559
+D 4.5A Id, 60V Vds, Dual N and P Channel MOSFET, 55mOhm Ron, 10V Vgs, SO8L
+K Dual N-Channel P-Channel MOSFET
+F https://www.fairchildsemi.com/datasheets/FD/FDS4559.pdf
+$ENDCMP
+#
+$CMP FDS4897AC
+D 6.1A Id, 40V Vds, Dual N and P Channel MOSFET, 26mOhm Ron, 10V Vgs, SO8L
+K Dual N-Channel P-Channel MOSFET
+F https://www.fairchildsemi.com/datasheets/FD/FDS4897AC.pdf
+$ENDCMP
+#
+$CMP FDS4897C
+D 6.2A Id, 40V Vds, Dual N and P Channel MOSFET, 29mOhm Ron, 10V Vgs, SO8L
+K Dual N-Channel P-Channel MOSFET
+F https://www.fairchildsemi.com/datasheets/FD/FDS4897C.pdf
+$ENDCMP
+#
+$CMP FDS8960C
+D 7A Id, 35V Vds, Dual N and P Channel MOSFET, 24mOhm Ron, 10V Vgs, SO8L
+K Dual N-Channel P-Channel MOSFET
+F https://www.fairchildsemi.com/datasheets/FD/FDS8960C.pdf
+$ENDCMP
+#
+$CMP FDS9934C
+D 6.5A Id, 20V Vds, Dual N and P Channel MOSFET, 30mOhm Ron, 4.5V Vgs, SO8L
+K Dual N-Channel P-Channel MOSFET
+F https://www.fairchildsemi.com/datasheets/FD/FDS9934C.pdf
+$ENDCMP
+#
+$CMP IRF7343PBF
+D 4A Id, 55V Vds, Dual HEXFET MOSFET, SO-8
+K Dual HEXFET N-Channel P-Channel MOSFET
+F http://www.irf.com/product-info/datasheets/data/irf7343ipbf.pdf
+$ENDCMP
+#
+$CMP JMP
+D Virtual jumper to connect different grounds
+$ENDCMP
+#
+$CMP LD
+K laser diode
+$ENDCMP
+#
+$CMP LDFM
+D 500 mA very low drop voltage regulator
+K LDO Regulator
+F www.farnell.com/datasheets/1947271.pdf
+$ENDCMP
+#
+$CMP LDU2430S1000
+D 1000 mA adjustable LED driver
+$ENDCMP
+#
+$CMP LEDdriver
+D Constant current LED driver
+K LED driver DC-DC converter
+F http://www.farnell.com/datasheets/1903665.pdf
+$ENDCMP
+#
+$CMP LM3480
+D 100-mA, SOT-23, Quasi Low-Dropout Linear Voltage Regulator
+$ENDCMP
+#
+$CMP LM393
+D Dual Voltage Comparator
+K Comp
+F ns/lm193.pdf
+$ENDCMP
+#
+$CMP LMV321
+D Low-Voltage Rail-to-Rail Output Operational Amplifier
+$ENDCMP
+#
+$CMP LT3092
+D 200mA 2-Terminal Programmable Current Source
+K Current Source
+F http://cds.linear.com/docs/en/datasheet/3092fb.pdf
+$ENDCMP
+#
+$CMP LT3092_SOT-223
+D 200mA 2-Terminal Programmable Current Source
+K Current Source
+F http://cds.linear.com/docs/en/datasheet/3092fb.pdf
+$ENDCMP
+#
+$CMP LT3092_SOT-23-8
+D 200mA 2-Terminal Programmable Current Source
+K Current Source
+F http://cds.linear.com/docs/en/datasheet/3092fb.pdf
+$ENDCMP
+#
+$CMP LTC1865-MS
+D Dual channel 16-bit Analog to Digital Converter, 5V supply, 150ksps, SPI interface
+K sigma-delta adc 2ch
+F https://www.analog.com/media/en/technical-documentation/data-sheets/18645fb.pdf
+$ENDCMP
+#
+$CMP LTC4071
+D Li-Ion/Polymer Shunt Battery Charger System with Low Battery Disconnect
+$ENDCMP
+#
+$CMP MAX1735
+D 200mA, Negative-Output, Low-Dropout Linear Regulator in SOT23
+K REGUL POWER
+$ENDCMP
+#
+$CMP MC100LVEL31
+D 3.3 V ECL D Flip‐Flop with Set and Reset
+$ENDCMP
+#
+$CMP MCP1501
+D High-Precision Buffered Voltage Reference
+F https://ww1.microchip.com/downloads/en/DeviceDoc/20005474E.pdf
+$ENDCMP
+#
+$CMP MCP15XX
+D 2.5V and 4.096V Voltage References
+K Voltage Reference, Power
+$ENDCMP
+#
+$CMP MCP331x1
+D 1 Msps/500 kSPS 16/14/12-Bit Differential Input SARADC
+K sigma-delta adc 1ch
+F https://ww1.microchip.com/downloads/en/DeviceDoc/MCP33131D-Data-Sheet-DS20005947B.pdf
+$ENDCMP
+#
+$CMP MCP4728
+D 12-Bit, Quad Digital-to-Analog Converter with EEPROM Memory
+K DAC, EEPROM
+$ENDCMP
+#
+$CMP MCP48CVB02
+D 2-Channel 8-Bit D/A Converters with SPI Interface
+K 8-Bit DAC SPI  2ch
+F https://www.mouser.co.uk/datasheet/2/268/MCP48CXBXX-Data-Sheet-DS20006160A-1774111.pdf
+$ENDCMP
+#
+$CMP MCP6541
+D Dual Voltage Comparator
+K Comp
+F ns/lm193.pdf
+$ENDCMP
+#
+$CMP MCP65R41
+D Dual Voltage Comparator
+K Comp
+F ns/lm193.pdf
+$ENDCMP
+#
+$CMP MCP9700
+D Low-power linear active thermistor
+$ENDCMP
+#
+$CMP MIC2954
+D 250mA Low-Dropout Regulator
+K LDO Regulator
+F http://ww1.microchip.com/downloads/en/DeviceDoc/mic2954.pdf
+$ENDCMP
+#
+$CMP NC7WZ04
+D Dual Inverter
+K Gate, inverter, inv, dual
+F NC7WZ04.pdf
+$ENDCMP
+#
+$CMP NMGxxxxSC
+D Isolated 2W Single Output DC/DC Converters
+K DC-DC converter
+$ENDCMP
+#
+$CMP NMLxxxxSC
+D Isolated 2W Single Output DC/DC Converters
+K DC-DC converter
+$ENDCMP
+#
+$CMP OPA728
+D e-trim™20MHz High Precision CMOS Operational Amplifier
+K single opamp
+F https://www.analog.com/media/en/technical-documentation/data-sheets/OP07.pdf
+$ENDCMP
+#
+$CMP PCA9685
+D 16-channel, 12-bit PWM Fm+ I2C-bus LED controller
+F PCA9685.pdf
+$ENDCMP
+#
+$CMP PSSI2021
+D Constant current source in SOT353 package
+K Current source
+F http://www.nxp.com/documents/data_sheet/PSSI2021SAY.pdf
+$ENDCMP
+#
+$CMP PT2272
+D 433MHz decoding receiver board
+$ENDCMP
+#
+$CMP QRD1114
+D Subminiature Reflective Optical Sensor
+K Reflective Optical Sensor Opto
+F http://www.kingbright.com/attachments/file/psearch/000/00/00/KRC011(Ver.15).pdf
+$ENDCMP
+#
+$CMP Q_DUAL_NMOS_PMOS_G1S2G2D2S1D1
+F https://www.diodes.com/assets/Datasheets/products_inactive_data/DMG6602SVT.pdf
+$ENDCMP
+#
+$CMP Q_NMOS_SSSGD
+D Transistor N-MOSFET LFPAK
+K nmos n-mos n-mosfet transistor
+$ENDCMP
+#
+$CMP Q_NPN_EBEC
+D Transistor NPN (general)
+K npn transistor
+$ENDCMP
+#
+$CMP REF30XX
+D High Precision, Low Drift, CMOS Voltage Reference
+K Voltage Reference, Power
+F REF30xx.pdf
+$ENDCMP
+#
+$CMP Rxx-100_150B
+D Innoline DC/DC Converter 5W
+$ENDCMP
+#
+$CMP S25FL032P
+D 32 Mbit SPI FLASH
+K 32-Mbit CMOS 3.0 Volt Flash Memory with 104-MHz SPI (Serial Peripheral Interface) Multi I/O Bus
+F S25FL032P.pdf
+$ENDCMP
+#
+$CMP SN74ALVC164245
+D 16-BIT 2.5-V TO 3.3-V/3.3-V TO 5-V LEVEL-SHIFTING TRANSCEIVER WITH 3-STATE OUTPUTS
+$ENDCMP
+#
+$CMP SRD
+D Diode
+$ENDCMP
+#
+$CMP SW_DP4T
+F https://www.ckswitches.com/media/1423/l.pdf
+$ENDCMP
+#
+$CMP SW_DPDT_LAMP
+D AV1921000Q04: Switch, dual pole double throw, lamp
+K switch dual-pole double-throw DPDT spdt ON-ON with lamp
+$ENDCMP
+#
+$CMP SW_Rotary1x6
+D rotary switch with 6 positions
+K rotary switch
+F http://www.farnell.com/datasheets/2604296.pdf
+$ENDCMP
+#
+$CMP SY100ELT23L
+D 3.3V Dual Differential LVPECL-to-LVTTL Translator
+$ENDCMP
+#
+$CMP Si4532DY
+D 3.9A Id, 30V Vds, Dual N and P Channel MOSFET, 65mOhm Ron, 10V Vgs, SO8L
+K Dual N-Channel P-Channel MOSFET
+F https://www.fairchildsemi.com/datasheets/SI/SI4532DY.pdf
+$ENDCMP
+#
+$CMP Si4542DY
+D Dual N and P Channel MOSFET, 6A Id, 30V Vds, 28mOhm Ron, 10V Vgs, SO8L
+K Dual N-Channel P-Channel MOSFET
+F https://www.fairchildsemi.com/datasheets/SI/SI4542DY.pdf
+$ENDCMP
+#
+$CMP Si8651
+D LOW POWER SIX-CHANNEL DIGITAL ISOLATOR
+$ENDCMP
+#
+$CMP Si8661
+D LOW POWER SIX-CHANNEL DIGITAL ISOLATOR
+$ENDCMP
+#
+$CMP TCM828
+D Switched Capacitor Voltage Converters
+K Charge Pump
+F http://www.farnell.com/datasheets/630371.pdf
+$ENDCMP
+#
+$CMP THS4551
+D Differential, High-Speed, Op Amp, VSSOP-8
+K differential opamp operational amplifier
+F https://www.ti.com/lit/ds/symlink/ths4551.pdf
+$ENDCMP
+#
+$CMP TLV2371xDBV
+D +/-33mA Regulated 1W DC/DC converter with 1.5kV isolation, 36V-75V input, +/-15V fixed Output Voltage, SMD
+K Murata isolated isolation dc-dc converter transformer
+F http://assets.tracopower.com/TMR1SM/documents/tmr1sm-datasheet.pdf
+$ENDCMP
+#
+$CMP TPA301
+D Audio Amplifier
+K 350-mW MONO AUDIO POWER AMPLIFIER
+F tpa301.pdf
+$ENDCMP
+#
+$CMP TPS61041
+D TPS6104x Low-Power DC-DC Boost Converter
+K DC-DC converter, boost converter, power supply
+$ENDCMP
+#
+$CMP TPS78225
+D 500nA Ultra-Low Quiescent Current 150mA Low-Dropout Linear Regulator
+$ENDCMP
+#
+$CMP TPS7A3001
+D IC, LDO, NEG, ADJ, 200MA, 8MSOP
+$ENDCMP
+#
+$CMP TPS7A4901
+D IC, LDO, ADJ, 150MA, 8MSOP
+$ENDCMP
+#
+$CMP XPPOWER_1OUT_1W_DIP
+D 2W DC-DC converter from XP Power
+K DC-DC converter
+F SF_IE.pdf
+$ENDCMP
+#
+$CMP XPPOWER_1OUT_2W_DIP
+D 2W DC-DC converter from XP Power
+K DC-DC converter
+F SF_IH.pdf
+$ENDCMP
+#
+$CMP XPPOWER_2OUT_2W_DIP
+D 2W DC-DC converter from XP Power
+K DC-DC converter
+F SF_IH.pdf
+$ENDCMP
+#
+$CMP XPPOWER_8W
+D 8W DC-DC converter from XP Power
+K DC-DC converter
+F SF_JCJ08-10.pdf
+$ENDCMP
+#
+$CMP XPPOWER_ISE
+D 1W isolated DC-DC converter
+$ENDCMP
+#
+#End Doc Library
