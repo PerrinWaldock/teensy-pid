@@ -1,0 +1,26 @@
+/*
+ * This is PID feedback control code intended to be used with the Teensy 4.1: 
+ 
+ * Most of the PID feedback control code is from here: https://github.com/mike-matera/FastPID/blob/master/src/FastPID.cpp
+ * 
+ * look here for code to speed up ADC: https://github.com/pedvide/ADC/blob/master/examples/analogContinuousRead/analogContinuousRead.ino
+ * 
+ * If using digital control code, use pyserial to adjust setpoint: https://anaconda.org/anaconda/pyserial
+ */
+
+/*
+ * 
+ * TODO print warning and sets flag if output has railed (is set equal to max output) when setpoint has not railed
+ * 
+ */
+
+ /*
+  * TODO
+  - -add optional buffer that stores output values to be printed at a later date (ro=1, ro=0, ro?)
+  * -clean up code, split into multiple files
+  * -look through previous todos
+  * -(MAYBE) use one digital input to turn feedback control on/off, and use the other as a setpoint
+  */
+
+-create a command handler class
+-create a fpid class, object with parameters
