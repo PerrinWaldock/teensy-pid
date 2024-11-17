@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "utils.hpp"
 
 template<typename T>
 T stringToType(char* str)

@@ -11,6 +11,6 @@ class EepromManager
         void EepromManager::load();
     private:
         FPid* feedbackController;
-}
+};
 
 #endif

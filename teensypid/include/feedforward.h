@@ -2,7 +2,7 @@
 #define FEED_FORWARD_H
 
 #include "settings.h"
-#include "utils.h"
+#include "utils.hpp"
 
 #define MAX_FEED_FORWARD_BITS 16
 

@@ -9,13 +9,9 @@ const uint16_t EEPROM_PARAMS_ADDRESS = 0;
 const uint16_t EEPROM_FEED_FORWARD_ADDRESS = 512;
 
 
-EepromManager::EepromManager(FPid* feedbackController)
+EepromManager::EepromManager(FPid& feedbackController)
 {
-    if (!feedbackController)
-    {
-        return;
-    }
-    this->feedbackController = feedbackController; //TODO switch to a pointer to a feedback controller? similar for other objects?
+    this->feedbackController = &feedbackController;
 }
 
 void EepromManager::save()

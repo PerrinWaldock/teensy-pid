@@ -2,7 +2,7 @@
 #define COMMAND_REGISTRAR_H
 
 #include <Arduino.h>
-#include "utils.h"
+#include "utils.hpp"
 
 #define MAX_COMMAND_NUMBER 64
 #define SET_TOKEN "="

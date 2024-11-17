@@ -6,19 +6,21 @@
 
 /*
 TODO replace <float>V in string with bitshifted integer ?
+    alternate:
+        separate commands for voltage and integer
+        add 
 */
 
 class CommandParser
 {
     public:
-        CommandParser::CommandParser(FPid* pidController);
+        CommandParser::CommandParser(FPid& pidController, EepromManager& eepromManager);
         void CommandParser::parse(char* string);
     
     private:
         EepromManager* eepromManager;
         FPid* pidController;
 
-}
-
+};
 
 #endif

@@ -2,7 +2,7 @@
 #define PID_PARAMS
 
 #include <Arduino.h>
-#include "utils.h"
+#include "utils.hpp"
 
 typedef struct
 {

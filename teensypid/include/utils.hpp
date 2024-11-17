@@ -3,8 +3,10 @@
 
 #include <Arduino.h>
 
-#define bound(x, a, b) x < a ? a : x > b ? b : x
+#define bound(x, a, b) (x < a ? a : (x > b ? b : x))
 #define sprint(x) Serial.print(x)
+
+// TODO define volts to int and ints to volt here to be used in commandregistrar
 
 typedef struct
 {
@@ -18,11 +20,8 @@ typedef struct
     size_t length;
 } U16Array;
 
+template<typename T> T stringToType(char* str);
 
-template<typename T>
-T stringToType(char* str);
-
-template<typename T>
-char* typeToString(T var);
+template<typename T> char* typeToString(T var);
 
 #endif
