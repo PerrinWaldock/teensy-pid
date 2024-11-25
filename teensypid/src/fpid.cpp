@@ -6,7 +6,7 @@ FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedba
     this->getFeedback = getFeedback;
     this->setOutput = setOutput;
 
-    this->pidController = FastPID(params.kp, params.ki, params.kd, params.loopRate, OUTPUT_BITS, true);
+    this->pidController = FastPID(params.kp, params.ki, params.kd, 1000000/params.loopPeriod_us, OUTPUT_BITS, true);
     this->feedForward = FeedForwardHelper(FF_CALIBRATION_ARRAY_BITS, FEED_FORWARD_ARRAY_BITS, CALIBRATION_AVERAGES, getFeedback, setOutput);
     setParams(params);
 }
@@ -21,8 +21,8 @@ FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedba
 void FPid::iterate()
 {
     // wait until correct time to run TODO better implementation
-    while (!inputRailed && timeSinceLastRun < params.loopRate);
-    timeSinceLastRun -= timeSinceLastRun; // reset time
+    while (!inputRailed && timeSinceLastRun < params.loopPeriod_us);
+    timeSinceLastRun = 0; // reset time
 
     if (!pidActive)
     {
@@ -115,8 +115,23 @@ void FPid::setOutputWithLimits(uint32_t outPut)
 void FPid::setParams(PidParams params)
 {
     this->params = params;
-    pidController.configure(params.kp, params.ki, params.kd, params.loopRate, OUTPUT_BITS, true);
+    pidController.configure(this->params.kp, this->params.ki, this->params.kd, 1000000/this->params.loopPeriod_us, OUTPUT_BITS, true);
+    reset();
+}
+
+bool FPid::getError()
+{
+    return pidController.err();
+}
+
+void FPid::reset()
+{
     pidController.clear();
+}
+
+PidParams FPid::getParams()
+{
+    return this->params;
 }
 
 void FPid::setPidActive(bool active)
@@ -161,4 +176,11 @@ void FPid::updateFeedForward(uint16_t* readings, int32_t readingsLength)
 void FPid::getFeedForwardReadings(uint16_t** readings, int32_t& readingsLength)
 {
     *readings = feedForward.getReadings(readingsLength);
+}
+
+void FPid::setOutputOpenLoop(uint16_t value)
+{
+    pidActive = false;
+    reset();
+    setOutputWithLimits(value);
 }

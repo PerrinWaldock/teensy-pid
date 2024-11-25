@@ -1,6 +1,9 @@
 #include "adc.h"
 #include <Arduino.h>
 #include <digitalWriteFast.h>
+#include "settings.h"
+#include "utils.hpp"
+#include "serialmanager.h"
 
 #define CALIBRATE_CLOCKS 1024
 
@@ -35,16 +38,17 @@ continuous
 #define MULTIPLE_ACQUISITION_TIME_NS 0
 #define WAIT_TIME_NS 10
 #define CLOCK_DELAY_NS 1
+#define CALIBRATION_TIMEOUT_MS 2000
 
 void initADC() {
 	pinMode(ADC_SDO, INPUT_PULLUP);
 	pinMode(ADC_SCK, OUTPUT);
 	pinMode(ADC_CNVST, OUTPUT);
 	digitalWrite(ADC_CNVST, LOW);
-	Serial.println("starting...");
+	writeLine("starting...");
 	
 	delay(100); //ensures that voltage rails have settled
-	Serial.println("calibrating...");
+	writeLine("calibrating...");
 	calibrateADC();
 }
 
@@ -105,7 +109,7 @@ uint16_t readADCMultiple(uint8_t power){
 }
 
 float readADCVolts(){
-	return readADC()*ADC_REFERENCE_VOLTAGE/65535.0;
+	return int2inputVolts(readADC());
 }
 
 void calibrateADC(){
@@ -132,15 +136,15 @@ void calibrateADC(){
 		#endif
 	}
 	
-	Serial.println("waiting for calibration to finish...");
+	writeLine("waiting for calibration to finish...");
 	
 	elapsedMillis calibtime; //todo change calibtime to 650
-	while(adcdigrd(ADC_SDO) == LOW && calibtime < 2000); //wait for calibration to finish
+	while(adcdigrd(ADC_SDO) == LOW && calibtime < CALIBRATION_TIMEOUT_MS); //wait for calibration to finish
 	if(adcdigrd(ADC_SDO) == LOW){
-		Serial.println("Calibration Failed!");
+		writeLine("Calibration Failed!");
 	}
 	else{
-		Serial.println("Calibration Succeeded!");
+		writeLine("Calibration Succeeded!");
 	}
 	
 	adcdigwr(ADC_CNVST, HIGH);

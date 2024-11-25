@@ -4,23 +4,18 @@
 #include "fpid.h"
 #include "eeprom-manager.h"
 
-/*
-TODO replace <float>V in string with bitshifted integer ?
-    alternate:
-        separate commands for voltage and integer
-        add 
-*/
-
 class CommandParser
 {
     public:
-        CommandParser::CommandParser(FPid& pidController, EepromManager& eepromManager);
-        void CommandParser::parse(char* string);
+        CommandParser(FPid& pidController, EepromManager& eepromManager, uint16_t setPoints[], uint8_t& readAveragesPower, bool& printOutput);
+        void parse(char* string);
     
     private:
         EepromManager* eepromManager;
         FPid* pidController;
-
+        uint16_t* setPoints;
+        uint8_t* readAveragesPower;
+        bool* printOutput;
 };
 
 #endif

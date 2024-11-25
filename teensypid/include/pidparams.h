@@ -9,7 +9,7 @@ typedef struct
     float ki;
     float kp;
     float kd;
-    uint32_t loopRate;
+    uint32_t loopPeriod_us;
     Extrema setPointLimit;
     Extrema outputLimit;
 } PidParams;

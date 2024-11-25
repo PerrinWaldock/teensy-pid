@@ -1,5 +1,5 @@
 #include "feedforward.h"
-#include "utils.h"
+#include "utils.hpp"
 
 uint16_t readMultiple(uint16_t (*readData)(void), int8_t averages)
 {

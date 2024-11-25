@@ -20,8 +20,9 @@ typedef struct
     size_t length;
 } U16Array;
 
-template<typename T> T stringToType(char* str);
-
-template<typename T> char* typeToString(T var);
+uint16_t outputVolts2int(float x);
+float int2outputVolts(uint16_t x);
+uint16_t inputVolts2int(float x);
+float int2inputVolts(uint16_t x);
 
 #endif

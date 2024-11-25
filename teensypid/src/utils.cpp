@@ -1,36 +1,22 @@
 #include "utils.hpp"
+#include "settings.h"
 
-template<typename T>
-T stringToType(char* str)
+uint16_t inputVolts2int(float x)
 {
-    switch(typeid(T))
-    {
-        case typeid(char*):
-            return str;
-        case typeid(int):
-            return atoi(str);
-        case typeid(float):
-            return atof(str);
-        default:
-            return (T)(str); // TODO better handling
-    }
+    return (uint16_t)((x*MAX_INPUT)/ADC_REFERENCE_VOLTAGE);
 }
 
-template<typename T>
-char* typeToString(T var)
+float int2inputVolts(uint16_t x)
 {
-    char[64] buffer;
-    switch(typeid(T))
-    {
-        case typeid(char*):
-            return str;
-        case typeid(int):
-            sprintf("%i", buffer, var);
-            return buffer;
-        case typeid(float):
-            sprintf("%f", buffer, var);
-            return buffer;
-        default:
-            return var.toString(); // TODO better handling
-    }
+    return x*ADC_REFERENCE_VOLTAGE/MAX_INPUT;
+}
+
+uint16_t outputVolts2int(float x)
+{
+    return (uint16_t)((x*MAX_OUTPUT)/DAC_REFERENCE_VOLTAGE);
+}
+
+float int2outputVolts(uint16_t x)
+{
+    return x*DAC_REFERENCE_VOLTAGE/MAX_OUTPUT;
 }

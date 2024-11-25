@@ -15,27 +15,24 @@
 #ifndef CALIBRATION_PRE_SETTLE_DELAY_US
 	#define CALIBRATION_PRE_SETTLE_DELAY_US 10000
 #endif
-#ifndef MAX_INPUT
-    const uint32_t MAX_INPUT = 1 << MAX_FEED_FORWARD_BITS;
-#endif
 
 const uint32_t MAX_ARRAY_SIZE = MAX_INPUT;
 
 class FeedForwardHelper
 {
     public:
-        FeedForwardHelper::FeedForwardHelper();
-        FeedForwardHelper::FeedForwardHelper(uint8_t calibrationBits, uint8_t feedForwardBits, uint8_t numberOfAverages, uint16_t (*getFeedback)(void), void (*setOutput)(uint16_t));
+        FeedForwardHelper();
+        FeedForwardHelper(uint8_t calibrationBits, uint8_t feedForwardBits, uint8_t numberOfAverages, uint16_t (*getFeedback)(void), void (*setOutput)(uint16_t));
 
-        void FeedForwardHelper::setReadings(uint16_t* readings, int32_t length);
-        uint16_t* FeedForwardHelper::getReadings(int32_t& length);
+        void setReadings(uint16_t* readings, int32_t length);
+        uint16_t* getReadings(int32_t& length);
         
-        uint16_t* FeedForwardHelper::getArray(int32_t& length);
-        uint16_t* FeedForwardHelper::getArray();
+        uint16_t* getArray(int32_t& length);
+        uint16_t* getArray();
 
-        void FeedForwardHelper::measure();
-        Extrema FeedForwardHelper::calculateArrayAndSetpointLimits(Extrema outputLimits);
-        Extrema FeedForwardHelper::getExtrema();
+        void measure();
+        Extrema calculateArrayAndSetpointLimits(Extrema outputLimits);
+        Extrema getExtrema();
 
 
     private:

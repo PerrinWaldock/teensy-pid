@@ -1,6 +1,17 @@
 #ifndef PINS
 #define PINS
 
+//defines the input and output pins 
+#if defined(__MK66FX1M0__) //3.6
+    #define TEENSY36
+#elif defined(__MK64FX512__) //3.5
+    #define TEENSY35
+#elif defined(__MK20DX256__) //3.2
+    #define TEENSY32
+#elif defined(__IMXRT1062__) //4.x
+    #define TEENSY40
+#endif
+
 typedef enum{
 	REV_V0,
 	REV_V2,
