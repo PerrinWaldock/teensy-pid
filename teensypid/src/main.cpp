@@ -11,6 +11,7 @@
 #include "adc.h"
 #include "serialmanager.h"
 #include "pins.h"
+#include "setpointmanager.h"
 
 /*
 Things left to do
@@ -42,15 +43,15 @@ Things left to do
 // TODO move to its own file
 uint16_t getSetPoint();
 uint16_t getFeedback();
-
-//IntervalTimer pidTimer; //used for timing the pid feedback loop
-//IntervalTimer readTimer; //used for timing the serial read code
+void printStats(FPid& pidController);
 
 
-uint16_t setPoints[NUM_SETPOINTS];
 uint8_t readAveragesPower = 0;
 bool printOutput = false;
 
+// TODO convert each of these to pointers because they need to be initialized in the setup function
+SetpointManager setpointManager = SetpointManager();
+// TODO make these const
 Extrema setpointLimits = {	inputVolts2int(DEFAULT_MIN_SETPOINT_VOLTS), 
 							inputVolts2int(DEFAULT_MAX_SETPOINT_VOLTS)};
 Extrema outputLimits = {	outputVolts2int(DEFAULT_MIN_OUTPUT_VOLTS), 
@@ -63,8 +64,8 @@ PidParams params = {DEFAULT_KI,
 					outputLimits};
 
 FPid pidController = FPid(params, getSetPoint, getFeedback, writeDAC);
-EepromManager eepromManager = EepromManager(pidController, setPoints, readAveragesPower);
-CommandParser commandParser = CommandParser(pidController, eepromManager, setPoints, readAveragesPower, printOutput);
+EepromManager eepromManager = EepromManager(pidController, setpointManager.getSetPoints(), readAveragesPower);
+CommandParser commandParser = CommandParser(pidController, eepromManager, setpointManager, readAveragesPower, printOutput);
 
 void setup()
 {
@@ -79,11 +80,6 @@ void setup()
 	#endif
     initADC();
     initDAC();
-
-	for (uint8_t i = 0; i < NUM_SETPOINTS; i++)
-	{
-		setPoints[i] = DEFAULT_SETPOINT;
-	}
 	
 	//sets up serial
 	#ifdef SERIAL_BAUD
@@ -109,36 +105,44 @@ void setup()
 void loop()
 {
 	static elapsedMillis timeSinceLastSerialComm;
+	static elapsedMillis timeSinceLastPrint;
 
 	pidController.iterate();
 
 	#ifdef SERIAL_BAUD
-		if (timeSinceLastSerialComm >= READ_PERIOD_MS)
+		if (timeSinceLastSerialComm >= SERIAL_CHECK_PERIOD_MS)
 		{
+			timeSinceLastSerialComm = 0;
 			if (isLineAvailable())
 			{
 				char* line = readLine();
 				commandParser.parse(line);
 			}
 		}
+
+		if (timeSinceLastPrint >= PRINT_PERIOD_MS && printOutput)
+		{
+			timeSinceLastPrint = 0;
+			printStats(pidController);
+		}
 	#endif
 }
 
 uint16_t getSetPoint()
 {
-	#if INPUT_MODE == DIGITAL_INPUT
-		uint8_t index = (digitalRead(PIN_REFERENCE1) << 1) | digitalRead(PIN_REFERENCE0);
-		return setPoints[index];
-	#elif INPUT_MODE == ANALOG_INPUT
-		return analogRead(PIN_REFERENCE) << (ADC_BITS - ANALOG_REFERENCE_RESOLUTION);
-	#elif INPUT_MODE == SOFTWARE_INPUT
-		return *setPoints;
-	#else
-		return DEFAULT_SETPOINT;
-	#endif 
+	return setpointManager.getSetPoint();
 }
 
 uint16_t getFeedback()
 {
 	return readADCMultiple(readAveragesPower);
+}
+
+void printStats(FPid& pidController)
+{
+	char line[200];
+	PidState state = pidController.getPidState();
+	snprintf(line, 200, "sp: %i fb: %i op: %i ff: %i", state.setPoint, state.feedBack, state.output, pidController.getFeedForwardValue());
+	Serial.println(line);
+	// TODO calculate loop time
 }

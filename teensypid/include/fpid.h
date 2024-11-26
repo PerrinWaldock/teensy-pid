@@ -51,6 +51,7 @@ class FPid
         void updateFeedForward(); //via measurement
         void updateFeedForward(uint16_t* readings, int32_t readingsLength); //from array
         void getFeedForwardReadings(uint16_t** readings, int32_t& readingsLength);
+        uint16_t getFeedForwardValue();
 
         void setOutputOpenLoop(uint16_t value);
         

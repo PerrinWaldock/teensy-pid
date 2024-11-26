@@ -5,11 +5,6 @@
 
 #include <string.h>
 
-// TODO need some way of recording the following
-// read averages
-// pid enable
-// print output
-
 #define TEMPORARY_BUFFER_LENGTH 128
 
 #define SET_TOKEN "="
@@ -81,11 +76,11 @@ void resetPidState(void*, char*);
 void checkConfigError(FPid*);
 
 
-CommandParser::CommandParser(FPid& pidController, EepromManager& eepromManager, uint16_t setPoints[], uint8_t& readAveragesPower, bool& printOutput)
+CommandParser::CommandParser(FPid& pidController, EepromManager& eepromManager, SetpointManager& setpointManager, uint8_t& readAveragesPower, bool& printOutput)
 {
 	this->pidController = &pidController;
 	this->eepromManager = &eepromManager;
-	this->setPoints = setPoints;
+	this->setpointManager = &setpointManager;
 	this->readAveragesPower = &readAveragesPower;
 	this->printOutput = &printOutput;
 
@@ -110,11 +105,10 @@ CommandParser::CommandParser(FPid& pidController, EepromManager& eepromManager, 
 	addCommand(OUTPUT_MAX_TOKEN GET_TOKEN, getOutputLimits, (void*) &pidController, "gets output limits (V)");
 	addCommand(OUTPUT_MIN_TOKEN GET_TOKEN, getOutputLimits, (void*) &pidController, "gets output limits (V)");
 
-	addCommand(SET_POINT_INT_TOKEN, setPointIntHandler, (void*) setPoints, SET_POINT_INT_TOKEN "X interacts with the Xth set point's integer value (e.g. " SET_POINT_INT_TOKEN "0" SET_TOKEN "0 sets the 1st set point to 0; " SET_POINT_INT_TOKEN "1" GET_TOKEN " gets the 2nd set point)");
-	addCommand(SET_POINT_INT_TOKEN GET_TOKEN, getSetPointsInt, (void*) &setPoints, "gets all set point values as integers");
-	// TODO NEED A SET POINT FLOAT HANDLER
-	addCommand(SET_POINT_FLOAT_TOKEN, setSetPointFloat, (void*) &setPoints, SET_POINT_FLOAT_TOKEN "X interacts with the Xth set point's voltage (e.g. " SET_POINT_FLOAT_TOKEN "1" SET_TOKEN "0 sets the 1st set point to 1 V; " SET_POINT_INT_TOKEN "1" GET_TOKEN " gets the 2nd set point voltage)");
-	addCommand(SET_POINT_FLOAT_TOKEN GET_TOKEN, getSetPointsFloat, (void*) &setPoints, "gets all set point values as voltages");
+	addCommand(SET_POINT_INT_TOKEN, setPointIntHandler, (void*) &setpointManager, SET_POINT_INT_TOKEN "X interacts with the Xth set point's integer value (e.g. " SET_POINT_INT_TOKEN "0" SET_TOKEN "0 sets the 1st set point to 0; " SET_POINT_INT_TOKEN "1" GET_TOKEN " gets the 2nd set point)");
+	addCommand(SET_POINT_INT_TOKEN GET_TOKEN, getSetPointsInt, (void*) &setpointManager, "gets all set point values as integers");
+	addCommand(SET_POINT_FLOAT_TOKEN, setPointFloatHandler, (void*) &setpointManager, SET_POINT_FLOAT_TOKEN "X interacts with the Xth set point's voltage (e.g. " SET_POINT_FLOAT_TOKEN "1" SET_TOKEN "0 sets the 1st set point to 1 V; " SET_POINT_INT_TOKEN "1" GET_TOKEN " gets the 2nd set point voltage)");
+	addCommand(SET_POINT_FLOAT_TOKEN GET_TOKEN, getSetPointsFloat, (void*) &setpointManager, "gets all set point values as voltages");
 
 	addCommand(READ_AVERAGES_TOKEN SET_TOKEN, setReadAverages, (void*) &readAveragesPower, "sets number of read averages (must be a power of 2)");
 	addCommand(READ_AVERAGES_TOKEN GET_TOKEN, getReadAverages, (void*) &readAveragesPower, "gets number of read averages");
@@ -364,15 +358,13 @@ void setSetPointInt(void* arg, char* s)
 
 	if (index >= 0 && index < NUM_SETPOINTS)
 	{
-		((uint16_t*)(arg))[index] = value;
+		((SetpointManager*)(arg))->setSetPoint(index, value);
 	}
 	
 	*delimiter = GET_TOKEN[0];
 	getSetPointsInt(arg, s);
 }
 
-// TODO need to copy changes made to the int version
-//<SP TOKEN> -> parse command
 void setSetPointFloat(void* arg, char* s)
 {
 	if (arg == NULL || s == NULL )
@@ -392,7 +384,7 @@ void setSetPointFloat(void* arg, char* s)
 
 	if (index >= 0 && index < NUM_SETPOINTS)
 	{
-		((uint16_t*)(arg))[index] = inputVolts2int(value);
+		((SetpointManager*)(arg))->setSetPoint(index, inputVolts2int(value));
 	}
 	
 	*delimiter = GET_TOKEN[0];
@@ -411,18 +403,24 @@ void getSetPointsInt(void* arg, char* s)
 	if (delimiter != NULL)
 	{
 		*delimiter = '\0';
-		uint16_t index = atoi(s);
+		uint8_t index = atoi(s);
 		if (index >= 0 && index < NUM_SETPOINTS)
 		{
-			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%i", index, ((uint16_t*)arg)[index]);
+			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%i", index, ((SetpointManager*)(arg))->getSetPoint(index));
 			writeLine(printBuffer);
 		}
 	}
 	else
 	{
-		for (uint16_t index = 0; index < NUM_SETPOINTS; index++)
+		for (uint8_t index = 0; index < NUM_SETPOINTS; index++)
 		{
-			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%i", index, ((uint16_t*)arg)[index]);
+			char* isActiveSetpoint = "";
+			if (index == ((SetpointManager*)(arg))->getSetPointIndex())
+			{
+				isActiveSetpoint = " <-";
+			}
+
+			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%i%s", index, ((SetpointManager*)(arg))->getSetPoint(index), isActiveSetpoint);
 			writeLine(printBuffer);
 		}
 	}
@@ -440,18 +438,24 @@ void getSetPointsFloat(void* arg, char* s)
 	if (delimiter != NULL)
 	{
 		*delimiter = '\0';
-		uint16_t index = atoi(s);
+		uint8_t index = atoi(s);
 		if (index >= 0 && index < NUM_SETPOINTS)
 		{
-			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%f V", index, int2inputVolts(((uint16_t*)arg)[index]));
+			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%f V", index, int2inputVolts(((SetpointManager*)(arg))->getSetPoint(index)));
 			writeLine(printBuffer);
 		}
 	}
 	else
 	{
-		for (uint16_t index = 0; index < NUM_SETPOINTS; index++)
+		for (uint8_t index = 0; index < NUM_SETPOINTS; index++)
 		{
-			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%f V", index, int2inputVolts(((uint16_t*)arg)[index]));
+			char* isActiveSetpoint = "";
+			if (index == ((SetpointManager*)(arg))->getSetPointIndex())
+			{
+				isActiveSetpoint = " <-";
+			}
+
+			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%f V%s", index, int2inputVolts(((SetpointManager*)(arg))->getSetPoint(index)), isActiveSetpoint);
 			writeLine(printBuffer);
 		}
 	}

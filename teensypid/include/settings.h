@@ -22,9 +22,11 @@ const float DEFAULT_KD = 0;
 //sets communication parameters
 const uint32_t SERIAL_BAUD = 1000000; //comment this out to disable serial communication
 const uint16_t SERIAL_CHECK_PERIOD_MS = 10;
-const uint16_t READ_PERIOD_MS = 100;      //how quickly it prints
+const uint16_t PRINT_PERIOD_MS = 100;      //how quickly it prints
 
 ///////////// Settings
+
+#define SERIAL_BAUD 1000000
 
 const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 

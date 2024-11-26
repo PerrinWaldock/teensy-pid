@@ -3,17 +3,18 @@
 
 #include "fpid.h"
 #include "eeprom-manager.h"
+#include "setpointmanager.h"
 
 class CommandParser
 {
     public:
-        CommandParser(FPid& pidController, EepromManager& eepromManager, uint16_t setPoints[], uint8_t& readAveragesPower, bool& printOutput);
+        CommandParser(FPid& pidController, EepromManager& eepromManager, SetpointManager& setpointManager, uint8_t& readAveragesPower, bool& printOutput);
         void parse(char* string);
     
     private:
         EepromManager* eepromManager;
         FPid* pidController;
-        uint16_t* setPoints;
+        SetpointManager* setpointManager;
         uint8_t* readAveragesPower;
         bool* printOutput;
 };

@@ -178,6 +178,15 @@ void FPid::getFeedForwardReadings(uint16_t** readings, int32_t& readingsLength)
     *readings = feedForward.getReadings(readingsLength);
 }
 
+uint16_t FPid::getFeedForwardValue()
+{
+    #if FEED_FORWARD
+        return feedForward.getArray()[lastSetPoint];
+    #else
+        return 0;
+    #endif
+}
+
 void FPid::setOutputOpenLoop(uint16_t value)
 {
     pidActive = false;
