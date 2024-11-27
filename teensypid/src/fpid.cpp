@@ -1,5 +1,11 @@
 #include "fpid.h"
 
+const uint16_t SAME_SETPOINT_TOLERANCE = inputVolts2int(.05);
+
+#ifndef PRECISE_LOOP_TIMING
+#define PRECISE_LOOP_TIMING false
+#endif
+
 FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedback)(void), void (*setOutput)(uint16_t))
 {
     this->getSetPoint = getSetPoint;
@@ -21,7 +27,9 @@ FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedba
 void FPid::iterate()
 {
     // wait until correct time to run TODO better implementation
-    while (!inputRailed && timeSinceLastRun < params.loopPeriod_us);
+    #if PRECISE_LOOP_TIMING
+        while (!inputRailed && timeSinceLastRun < params.loopPeriod_us);
+    #endif
     timeSinceLastRun = 0; // reset time
 
     if (!pidActive)
@@ -32,7 +40,9 @@ void FPid::iterate()
 
     uint16_t setPoint = (*getSetPoint)();
 
-    bool setPointChanged = setPoint != lastSetPoint;
+    //TODO check setpoint changed across a range
+    int16_t setPointChange = setPoint - lastSetPoint;
+    bool setPointChanged = setPointChange <= SAME_SETPOINT_TOLERANCE && setPointChange >= -1*SAME_SETPOINT_TOLERANCE;
     lastSetPoint = setPoint;
     
     if (setPointChanged)
@@ -94,6 +104,7 @@ void FPid::iterate()
     }
 
     setOutputWithLimits(output);
+    lastIterationTime = timeSinceLastRun;
 }
 
 
@@ -146,6 +157,7 @@ PidState FPid::getPidState()
         lastSetPoint,
         lastFeedBack,
         lastOutput,
+        lastIterationTime,
         pidActive,
         inputRailed
     };

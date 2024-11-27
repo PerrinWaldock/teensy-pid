@@ -14,13 +14,16 @@
 #include "setpointmanager.h"
 
 /*
-Things left to do
-- purge macros and constants
-- set up timing of feedback loop and command parsing
-- create readAdc function and writeDac function
-- look into async ADC reads
-	- https://github.com/hideakitai/TsyDMASPI
-- create some sort of printPidState function
+TODO
+	convert managers, etc to pointers
+	clean up header files, make sure stuff is only defined in one place
+	clean build errors
+		fastpid
+		type comparison warnings
+	consider making different files classes
+	implement input/output logging with circularbuffer
+	look into async ADC reads
+		Bhttps://github.com/hideakitai/TsyDMASPI
 */
 
 
@@ -142,7 +145,6 @@ void printStats(FPid& pidController)
 {
 	char line[200];
 	PidState state = pidController.getPidState();
-	snprintf(line, 200, "sp: %i fb: %i op: %i ff: %i", state.setPoint, state.feedBack, state.output, pidController.getFeedForwardValue());
+	snprintf(line, 200, "t: %i, sp: %i fb: %i op: %i ff: %i", state.iterationTime, state.setPoint, state.feedBack, state.output, pidController.getFeedForwardValue());
 	Serial.println(line);
-	// TODO calculate loop time
 }

@@ -24,6 +24,8 @@ const uint32_t SERIAL_BAUD = 1000000; //comment this out to disable serial commu
 const uint16_t SERIAL_CHECK_PERIOD_MS = 10;
 const uint16_t PRINT_PERIOD_MS = 100;      //how quickly it prints
 
+#define PRECISE_LOOP_TIMING false
+
 ///////////// Settings
 
 #define SERIAL_BAUD 1000000

@@ -55,7 +55,7 @@ void SetpointManager::setSetPoint(uint8_t index, uint16_t value)
 uint8_t SetpointManager::getSetPointIndex()
 {
 	#if INPUT_MODE == DIGITAL_INPUT
-		(digitalRead(PIN_REFERENCE1) << 1) | digitalRead(PIN_REFERENCE0);
+		return ((digitalRead(PIN_REFERENCE1) << 1) | digitalRead(PIN_REFERENCE0));
 	#else
 		return 0;
 	#endif

@@ -23,12 +23,12 @@ also need separate EEPROM writer
 #define KD_MIN(f) (KD_MIN(f)/f)
 #define KD_MAX(f) (KD_MAX(f)/f)
 
-
 typedef struct
 {
     uint16_t setPoint;
     uint16_t feedBack;
     uint16_t output;
+    uint16_t iterationTime;
     bool active;
     bool railed;
 } PidState;
@@ -59,6 +59,7 @@ class FPid
         uint16_t lastSetPoint = 0;
         uint16_t lastFeedBack = 0;
         uint16_t lastOutput = 0;
+        uint16_t lastIterationTime = 0;
         bool pidActive = false;
         bool inputRailed = false;
         elapsedMicros timeSinceLastRun;

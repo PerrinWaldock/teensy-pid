@@ -1,3 +1,6 @@
+#ifndef SETPOINTMANAGER_H
+#define SETPOINTMANAGER_H
+
 #include "settings.h"
 
 class SetpointManager
@@ -13,3 +16,5 @@ class SetpointManager
 	private:
 		uint16_t setPoints[NUM_SETPOINTS];
 };
+
+#endif

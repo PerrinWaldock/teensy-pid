@@ -9,7 +9,7 @@ class CommandParser
 {
     public:
         CommandParser(FPid& pidController, EepromManager& eepromManager, SetpointManager& setpointManager, uint8_t& readAveragesPower, bool& printOutput);
-        void parse(char* string);
+        bool parse(char* string);
     
     private:
         EepromManager* eepromManager;

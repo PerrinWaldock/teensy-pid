@@ -122,6 +122,11 @@ CommandParser::CommandParser(FPid& pidController, EepromManager& eepromManager, 
 	addCommand(PRINT_OUTPUT_TOKEN SET_TOKEN, setPrintOutput, (void*) &printOutput, "1 to print output, 0 to disable print output");
 }
 
+bool CommandParser::parse(char* s)
+{
+	return processCommand(s);
+}
+
 void setKp(void* arg, char* s)
 {
 	if (arg == NULL || s == NULL )
@@ -414,12 +419,7 @@ void getSetPointsInt(void* arg, char* s)
 	{
 		for (uint8_t index = 0; index < NUM_SETPOINTS; index++)
 		{
-			char* isActiveSetpoint = "";
-			if (index == ((SetpointManager*)(arg))->getSetPointIndex())
-			{
-				isActiveSetpoint = " <-";
-			}
-
+			const char* isActiveSetpoint = index == ((SetpointManager*)(arg))->getSetPointIndex() ? " <-" : "";
 			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%i%s", index, ((SetpointManager*)(arg))->getSetPoint(index), isActiveSetpoint);
 			writeLine(printBuffer);
 		}
@@ -449,12 +449,7 @@ void getSetPointsFloat(void* arg, char* s)
 	{
 		for (uint8_t index = 0; index < NUM_SETPOINTS; index++)
 		{
-			char* isActiveSetpoint = "";
-			if (index == ((SetpointManager*)(arg))->getSetPointIndex())
-			{
-				isActiveSetpoint = " <-";
-			}
-
+			const char* isActiveSetpoint = index == ((SetpointManager*)(arg))->getSetPointIndex() ? " <-" : "";
 			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, SET_POINT_INT_TOKEN "%i" SET_TOKEN "%f V%s", index, int2inputVolts(((SetpointManager*)(arg))->getSetPoint(index)), isActiveSetpoint);
 			writeLine(printBuffer);
 		}
