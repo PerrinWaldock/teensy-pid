@@ -1,6 +1,5 @@
 #include "main.h"
 #include <EEPROM.h>     //for permanently saving settings
-#include <CircularBuffer.hpp> //prepackaged Circular Buffer
 #include <IntervalTimer.h>
 #include <Arduino.h>
 
@@ -12,10 +11,10 @@
 #include "serialmanager.h"
 #include "pins.h"
 #include "setpointmanager.h"
+#include "datalogger.h"
 
 /*
 TODO
-	convert managers, etc to pointers
 	clean up header files, make sure stuff is only defined in one place
 	clean build errors
 		fastpid
@@ -26,49 +25,23 @@ TODO
 		Bhttps://github.com/hideakitai/TsyDMASPI
 */
 
-
-#if RECORD_INPUT
-	typedef enum{
-		LOG_OFF, //don't log output
-		LOG_SINGLE, //log until full
-		LOG_CONTINUOUS	//continue logging, overwriting old data
-	} LogState;
-	const uint32_t INPUT_LOG_SIZE = 150000/2;
-	CircularBuffer<uint16_t, INPUT_LOG_SIZE> inputLog;
-	CircularBuffer<uint16_t, INPUT_LOG_SIZE> outputLog;
-	LogState logState = LOG_OFF;
-#endif
-
-#if INPUT_MODE == ANALOG_INPUT
-	#define readAnalogReference() analogRead(PIN_REFERENCE) << (ADC_BITS - ANALOG_REFERENCE_RESOLUTION);
-#endif
-
 // TODO move to its own file
 uint16_t getSetPoint();
 uint16_t getFeedback();
+void setOutput(uint16_t);
 void printStats(FPid& pidController);
 
+
+DataLog dataLog = GetNewDataLog();
+LogState logState = LOG_OFF;
 
 uint8_t readAveragesPower = 0;
 bool printOutput = false;
 
-// TODO convert each of these to pointers because they need to be initialized in the setup function
-SetpointManager setpointManager = SetpointManager();
-// TODO make these const
-Extrema setpointLimits = {	inputVolts2int(DEFAULT_MIN_SETPOINT_VOLTS), 
-							inputVolts2int(DEFAULT_MAX_SETPOINT_VOLTS)};
-Extrema outputLimits = {	outputVolts2int(DEFAULT_MIN_OUTPUT_VOLTS), 
-							outputVolts2int(DEFAULT_MAX_OUTPUT_VOLTS)};
-PidParams params = {DEFAULT_KI, 
-					DEFAULT_KP, 
-					DEFAULT_KD, 
-					DEFAULT_SAMPLE_PERIOD_US, 
-					setpointLimits, 
-					outputLimits};
-
-FPid pidController = FPid(params, getSetPoint, getFeedback, writeDAC);
-EepromManager eepromManager = EepromManager(pidController, setpointManager.getSetPoints(), readAveragesPower);
-CommandParser commandParser = CommandParser(pidController, eepromManager, setpointManager, readAveragesPower, printOutput);
+SetpointManager* setpointManager;
+FPid* pidController;
+EepromManager* eepromManager;
+CommandParser* commandParser;
 
 void setup()
 {
@@ -88,7 +61,7 @@ void setup()
 	#ifdef SERIAL_BAUD
 
 		Serial.begin(SERIAL_BAUD);
-		while (pidController.getError()) 
+		while (pidController->getError()) 
 		{
             if(Serial)
             {
@@ -100,8 +73,24 @@ void setup()
 		Serial.println("PID Begin");
 	#endif
 
+	setpointManager = new SetpointManager();
+
+	Extrema setpointLimits = {	inputVolts2int(DEFAULT_MIN_SETPOINT_VOLTS), 
+							inputVolts2int(DEFAULT_MAX_SETPOINT_VOLTS)};
+	Extrema outputLimits = {	outputVolts2int(DEFAULT_MIN_OUTPUT_VOLTS), 
+								outputVolts2int(DEFAULT_MAX_OUTPUT_VOLTS)};
+	PidParams params = {DEFAULT_KI, 
+						DEFAULT_KP, 
+						DEFAULT_KD, 
+						DEFAULT_SAMPLE_PERIOD_US, 
+						setpointLimits, 
+						outputLimits};
+	pidController = new FPid(params, getSetPoint, getFeedback, writeDAC);
+	eepromManager = new EepromManager(*pidController, setpointManager->getSetPoints(), readAveragesPower);
+	commandParser = new CommandParser(*pidController, *eepromManager, *setpointManager, readAveragesPower, printOutput);
+
 	#if SAVE_DATA
-		eepromManager.load();
+		eepromManager->load();
 	#endif
 }
 
@@ -110,7 +99,7 @@ void loop()
 	static elapsedMillis timeSinceLastSerialComm;
 	static elapsedMillis timeSinceLastPrint;
 
-	pidController.iterate();
+	pidController->iterate();
 
 	#ifdef SERIAL_BAUD
 		if (timeSinceLastSerialComm >= SERIAL_CHECK_PERIOD_MS)
@@ -119,26 +108,44 @@ void loop()
 			if (isLineAvailable())
 			{
 				char* line = readLine();
-				commandParser.parse(line);
+				commandParser->parse(line);
 			}
 		}
 
 		if (timeSinceLastPrint >= PRINT_PERIOD_MS && printOutput)
 		{
 			timeSinceLastPrint = 0;
-			printStats(pidController);
+			printStats(*pidController);
 		}
 	#endif
 }
 
-uint16_t getSetPoint()
+inline uint16_t getSetPoint()
 {
-	return setpointManager.getSetPoint();
+	return setpointManager->getSetPoint();
 }
 
-uint16_t getFeedback()
+inline uint16_t getFeedback()
 {
-	return readADCMultiple(readAveragesPower);
+	uint16_t retval = readADCMultiple(readAveragesPower);
+	#if RECORD_INPUT
+		if ((datalog.state == LOG_SINGLE && datalog.input.available()) || datalog.state == LOG_CONTINUOUS)
+		{
+			dataLog.input.unshift(retval);
+		}
+	#endif
+	return retval;
+}
+
+inline void setOutput(uint16_t out)
+{
+	#if RECORD_INPUT
+		if ((datalog.state == LOG_SINGLE && datalog.output.available()) || datalog.state == LOG_CONTINUOUS)
+		{
+			dataLog.output.unshift(out);
+		}
+	#endif
+	writeDAC(out);
 }
 
 void printStats(FPid& pidController)

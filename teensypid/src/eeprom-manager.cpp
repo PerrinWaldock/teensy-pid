@@ -25,11 +25,10 @@ void EepromManager::save()
     
     #if FEED_FORWARD
         int32_t readingsLength;
-        uint16_t** readings;
-        feedbackController->getFeedForwardReadings(readings, readingsLength);
+        uint16_t* readings = feedbackController->getFeedForwardReadings(readingsLength);
         for(uint16_t j = 0; j < readingsLength; j++)
         {
-            EEPROM.put(EEPROM_FEED_FORWARD_ADDRESS+(j*sizeof(**readings)), (*readings)[j]);
+            EEPROM.put(EEPROM_FEED_FORWARD_ADDRESS+(j*sizeof(*readings)), readings[j]);
         }
     #endif
 }
@@ -43,12 +42,11 @@ void EepromManager::load()
     
     #if FEED_FORWARD
         int32_t readingsLength;
-        uint16_t** readings;
-        feedbackController->getFeedForwardReadings(readings, readingsLength);
+        uint16_t* readings = feedbackController->getFeedForwardReadings(readingsLength);
         for(uint16_t j = 0; j < readingsLength; j++)
         {
-            EEPROM.get(EEPROM_FEED_FORWARD_ADDRESS+(j*sizeof(**readings)), (*readings)[j]);
+            EEPROM.get(EEPROM_FEED_FORWARD_ADDRESS+(j*sizeof(*readings)), readings[j]);
         }
-        feedbackController->updateFeedForward(*readings, readingsLength);
+        feedbackController->updateFeedForward(readings, readingsLength);
     #endif
 }

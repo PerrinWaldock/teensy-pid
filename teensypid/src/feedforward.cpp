@@ -38,7 +38,7 @@ FeedForwardHelper::FeedForwardHelper(uint8_t calibrationBits, uint8_t feedForwar
 
 void FeedForwardHelper::setReadings(uint16_t* readings, int32_t length)
 {
-    readingsSize = min(length, MAX_ARRAY_SIZE);
+    readingsSize = min((uint32_t)length, MAX_ARRAY_SIZE);
     for (uint32_t i = 0; i < readingsSize; i++)
     {
         this->readings[i] = readings[i];
@@ -66,7 +66,7 @@ void FeedForwardHelper::measure()
 {
     setOutput(0);
 	delayMicroseconds(CALIBRATION_PRE_SETTLE_DELAY_US);
-    for(int32_t i = 0; i < readingsSize; i++)
+    for(uint32_t i = 0; i < readingsSize; i++)
     {
         uint16_t outputValue = feedForwardCalibrationOutput(i);
         setOutput(outputValue);

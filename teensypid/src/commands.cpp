@@ -2,6 +2,7 @@
 #include "commandregistrar.h"
 #include "utils.hpp"
 #include "serialmanager.h"
+#include "datalogger.h"
 
 #include <string.h>
 
@@ -17,10 +18,8 @@
 #define LOOP_RATE_TOKEN "lf"
 #define SET_POINT_MIN_TOKEN "ls"
 #define SET_POINT_MAX_TOKEN "hs"
-//#define SET_POINT_LIMITS_TOKEN "sl"
 #define OUTPUT_MIN_TOKEN "lo"
 #define OUTPUT_MAX_TOKEN "ho"
-//#define OUTPUT_LIMITS_TOKEN "ol"
 #define SET_POINT_INT_TOKEN "sp"
 #define SET_POINT_FLOAT_TOKEN "sv"
 #define READ_AVERAGES_TOKEN "ra"
@@ -29,14 +28,20 @@
 #define PRINT_OUTPUT_TOKEN "po"
 #define CALIBRATE_TOKEN "cf"
 #define EEPROM_TOKEN "ew"
+#define EEPROM_WRITE_TOKEN "w"
+#define EEPROM_READ_TOKEN "r"
 #define RESET_TOKEN "cl"
 #define SET_OUTPUT_TOKEN "ov"
 
-#define EEPROM_WRITE_TOKEN "w"
-#define EEPROM_READ_TOKEN "r"
+#define LOG_TOKEN "lo"
+#define LOG_OFF_TOKEN "o"
+#define LOG_SINGLE_TOKEN "s"
+#define LOG_CONTINUOUS_TOKEN "c"
+#define LOG_PRINT_TOKEN "p"
 
 #define NUMBER_OF_SETPOINTS INPUT_STATES
 
+// TODO convert to handlers that take specific arguments, do the void conversion in a lambda
 void setKp(void*, char*);
 void getKp(void*, char*);
 void setKi(void*, char*);
@@ -55,9 +60,9 @@ void getOutputLimits(void*, char*);
 
 void setPointIntHandler(void*, char*);
 void setPointFloatHandler(void*, char*);
-void setSetPointInt(void*, char*); //<SP TOKEN> -> parse command
+void setSetPointInt(void*, char*);
 void setSetPointFloat(void*, char*);
-void getSetPointsInt(void*, char*); //<SP TOKEN> <QUERY>
+void getSetPointsInt(void*, char*);
 void getSetPointsFloat(void*, char*);
 
 void setReadAverages(void*, char*);
@@ -72,6 +77,8 @@ void setPrintOutput(void*, char*);
 void calibrateFeedForward(void*, char*);
 void eepromReadWrite(void*, char*);
 void resetPidState(void*, char*);
+
+void logHandler(DataLog*, char*);
 
 void checkConfigError(FPid*);
 
@@ -152,7 +159,6 @@ void getKp(void* arg, char* s)
 	writeLine(printBuffer);
 }
 
-//todo fix i, d
 void setKi(void* arg, char* s)
 {
 	if (arg == NULL || s == NULL )
@@ -576,5 +582,39 @@ void checkConfigError(FPid* controller)
 	if (controller->getError())
 	{
 		writeLine("There was a configuration error!");
+	}
+}
+
+void logHandler(DataLog* log, char* s)
+{
+	char printBuffer[TEMPORARY_BUFFER_LENGTH];
+	if (log == NULL || s == NULL)
+	{
+		return;
+	}
+
+	if (strcmp(s, LOG_OFF_TOKEN))
+	{
+		log->state = LOG_OFF;
+		writeLine(LOG_TOKEN SET_TOKEN LOG_OFF_TOKEN);
+	}
+	else if(strcmp(s, LOG_SINGLE_TOKEN))
+	{
+		log->state = LOG_SINGLE;
+		writeLine(LOG_TOKEN SET_TOKEN LOG_SINGLE_TOKEN);
+	}
+	else if (strcmp(s, LOG_CONTINUOUS_TOKEN))
+	{
+		log->state = LOG_CONTINUOUS;
+		writeLine(LOG_TOKEN SET_TOKEN LOG_CONTINUOUS_TOKEN);
+	}
+
+	if (strcmp(s, LOG_PRINT_TOKEN))
+	{
+		while (!log->input.isEmpty() && !log->output.isEmpty())
+		{
+			snprintf(printBuffer, TEMPORARY_BUFFER_LENGTH, "i: %i\t o: %i", log->input.shift(), log->output.shift());
+			writeLine(printBuffer);
+		}
 	}
 }

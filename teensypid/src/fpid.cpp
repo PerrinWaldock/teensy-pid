@@ -185,9 +185,9 @@ void FPid::updateFeedForward(uint16_t* readings, int32_t readingsLength)
     pidActive = previousActiveState;
 }
 
-void FPid::getFeedForwardReadings(uint16_t** readings, int32_t& readingsLength)
+uint16_t* FPid::getFeedForwardReadings(int32_t& readingsLength)
 {
-    *readings = feedForward.getReadings(readingsLength);
+    return feedForward.getReadings(readingsLength);
 }
 
 uint16_t FPid::getFeedForwardValue()
