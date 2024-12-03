@@ -26,6 +26,7 @@ bool processCommand(char* commandString)
     }
     snprintf(tempBuffer, TEMPORARY_BUFFER_LENGTH, "%s not recognized", commandString);
     writeLine(tempBuffer);
+    printHelp();
     
     return false;
 }

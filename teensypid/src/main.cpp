@@ -1,5 +1,4 @@
 #include "main.h"
-#include <EEPROM.h>     //for permanently saving settings
 #include <IntervalTimer.h>
 #include <Arduino.h>
 
@@ -16,11 +15,11 @@
 /*
 TODO
 	clean up header files, make sure stuff is only defined in one place
-	clean build errors
-		fastpid
-		type comparison warnings
 	consider making different files classes
-	implement input/output logging with circularbuffer
+		commandregistrar
+			gets passed some sort of serial object (inherits from print)
+			convert print statements to using printf
+		also pass serial object to all other classes
 	look into async ADC reads
 		Bhttps://github.com/hideakitai/TsyDMASPI
 */
@@ -61,15 +60,6 @@ void setup()
 	#ifdef SERIAL_BAUD
 
 		Serial.begin(SERIAL_BAUD);
-		while (pidController->getError()) 
-		{
-            if(Serial)
-            {
-		        Serial.println("There is a configuration error!");
-            }
-            delay(1000);
-		}
-
 		Serial.println("PID Begin");
 	#endif
 
@@ -88,6 +78,17 @@ void setup()
 	pidController = new FPid(params, getSetPoint, getFeedback, writeDAC);
 	eepromManager = new EepromManager(*pidController, setpointManager->getSetPoints(), readAveragesPower);
 	commandParser = new CommandParser(*pidController, *eepromManager, *setpointManager, readAveragesPower, printOutput);
+
+	#ifdef SERIAL_BAUD
+		while (pidController->getError()) 
+		{
+            if(Serial)
+            {
+		        Serial.println("There is a configuration error!");
+            }
+            delay(1000);
+		}
+	#endif
 
 	#if SAVE_DATA
 		eepromManager->load();
