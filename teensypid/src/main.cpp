@@ -30,10 +30,7 @@ uint16_t getFeedback();
 void setOutput(uint16_t);
 void printStats(FPid& pidController);
 
-
 DataLog dataLog = GetNewDataLog();
-LogState logState = LOG_OFF;
-
 uint8_t readAveragesPower = 0;
 bool printOutput = false;
 
@@ -44,21 +41,11 @@ CommandParser* commandParser;
 
 void setup()
 {
-	//sets pin states
-	#if INPUT_MODE == DIGITAL_INPUT
-		pinMode(PIN_REFERENCE0, INPUT);
-		pinMode(PIN_REFERENCE1, INPUT);
-	#elif INPUT_MODE == ANALOG_INPUT
-		pinMode(PIN_REFERENCE, INPUT);
-		analogReadAveraging(ANALOG_READ_AVERAGES);
-		analogReadResolution(ANALOG_REFERENCE_RESOLUTION);
-	#endif
     initADC();
     initDAC();
 	
 	//sets up serial
 	#ifdef SERIAL_BAUD
-
 		Serial.begin(SERIAL_BAUD);
 		Serial.println("PID Begin");
 	#endif
