@@ -21,6 +21,3 @@
   * -look through previous todos
   * -(MAYBE) use one digital input to turn feedback control on/off, and use the other as a setpoint
   */
-
--create a command handler class
--create a fpid class, object with parameters

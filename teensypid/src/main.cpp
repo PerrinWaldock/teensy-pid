@@ -14,6 +14,7 @@
 
 /*
 TODO
+	clean up and update the README
 	clean up header files, make sure stuff is only defined in one place
 	consider making different files classes
 		commandregistrar
