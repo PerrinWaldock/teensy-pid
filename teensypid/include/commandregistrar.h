@@ -7,7 +7,7 @@
 #define MAX_COMMAND_NUMBER 64
 /*
 NOTE: this could be implemented using a dictionary structure to get faster performance
-TODO alternatively, remove the fancy addGetter and addSetter implementation, implement all in functions as before
+TODO switch to a singleton class
 */
 
 bool processCommand(char* commandString);

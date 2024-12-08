@@ -11,6 +11,7 @@
         "type_traits": "cpp",
         "utility": "cpp",
         "commandregistrar.h": "c",
-        "*.tpp": "c"
+        "*.tpp": "c",
+        "memory": "cpp"
     }
 }

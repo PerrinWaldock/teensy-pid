@@ -4,19 +4,32 @@
 #include "fpid.h"
 #include "eeprom-manager.h"
 #include "setpointmanager.h"
+#include "datalogger.h"
+
+/*
+TODO
+    create a CommandParserObjects struct that includes a print function
+    pass that struct to the event handlers
+*/
+
+typedef struct {
+    FPid& pidController;
+    EepromManager& eepromManager;
+    SetpointManager& setpointManager;
+    uint8_t& readAveragesPower;
+    bool& printOutput;
+    DataLog& log;
+    Print& printer;
+} CommandParserObjects;
 
 class CommandParser
 {
     public:
-        CommandParser(FPid& pidController, EepromManager& eepromManager, SetpointManager& setpointManager, uint8_t& readAveragesPower, bool& printOutput);
+        CommandParser(CommandParserObjects objects);
         bool parse(char* string);
     
     private:
-        EepromManager* eepromManager;
-        FPid* pidController;
-        SetpointManager* setpointManager;
-        uint8_t* readAveragesPower;
-        bool* printOutput;
+        CommandParserObjects* objects;
 };
 
 #endif

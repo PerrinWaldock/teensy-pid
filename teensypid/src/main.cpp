@@ -65,7 +65,8 @@ void setup()
 						outputLimits};
 	pidController = new FPid(params, getSetPoint, getFeedback, writeDAC);
 	eepromManager = new EepromManager(*pidController, setpointManager->getSetPoints(), readAveragesPower);
-	commandParser = new CommandParser(*pidController, *eepromManager, *setpointManager, readAveragesPower, printOutput);
+	CommandParserObjects objects = {*pidController, *eepromManager, *setpointManager, readAveragesPower, printOutput, dataLog, Serial};
+	commandParser = new CommandParser(objects);
 
 	#ifdef SERIAL_BAUD
 		while (pidController->getError()) 
