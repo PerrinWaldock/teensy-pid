@@ -14,7 +14,11 @@ FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedba
 
     this->pidController = FastPID(params.kp, params.ki, params.kd, 1000000/params.loopPeriod_us, OUTPUT_BITS, true);
     this->feedForward = FeedForwardHelper(FF_CALIBRATION_ARRAY_BITS, FEED_FORWARD_ARRAY_BITS, CALIBRATION_AVERAGES, getFeedback, setOutput);
+
+    Serial.printf("FPid(): kd:%f\n", params.kd);
     setParams(params);
+    Serial.printf("FPid() post set: kd:%f\n", this->params.kd);
+    Serial.printf("FPid() post set accesor: kd:%f\n", getParams().kd);
 }
 
 // TODO add timing externally
@@ -123,10 +127,10 @@ void FPid::setOutputWithLimits(uint32_t outPut)
     (*setOutput)(outPut);
 }
 
-void FPid::setParams(PidParams params)
+void FPid::setParams(PidParams ps)
 {
-    this->params = params;
-    pidController.configure(this->params.kp, this->params.ki, this->params.kd, 1000000/this->params.loopPeriod_us, OUTPUT_BITS, true);
+    params = ps;
+    pidController.configure(params.kp, params.ki, params.kd, 1000000/params.loopPeriod_us, OUTPUT_BITS, true);
     reset();
 }
 
@@ -142,7 +146,9 @@ void FPid::reset()
 
 PidParams FPid::getParams()
 {
-    return this->params;
+    Serial.printf("getting params\n");
+    Serial.printf("params kd -> %f\n", params.kd);
+    return params;
 }
 
 void FPid::setPidActive(bool active)

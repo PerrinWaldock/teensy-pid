@@ -12,15 +12,15 @@ TODO
     pass that struct to the event handlers
 */
 
-typedef struct {
-    FPid& pidController;
-    EepromManager& eepromManager;
-    SetpointManager& setpointManager;
-    uint8_t& readAveragesPower;
-    bool& printOutput;
-    DataLog& log;
-    Print& printer;
-} CommandParserObjects;
+struct CommandParserObjects {
+    FPid* pidController;
+    EepromManager* eepromManager;
+    SetpointManager* setpointManager;
+    uint8_t* readAveragesPower;
+    bool* printOutput;
+    DataLog* log;
+    Print* printer;
+};
 
 class CommandParser
 {
@@ -29,7 +29,7 @@ class CommandParser
         bool parse(char* string);
     
     private:
-        CommandParserObjects* objects;
+        CommandParserObjects objects;
 };
 
 #endif

@@ -14,6 +14,4 @@ typedef struct
     Extrema outputLimit;
 } PidParams;
 
-void savePID(PidParams params);
-
 #endif

@@ -17,7 +17,7 @@ typedef enum {
 const uint32_t DEFAULT_SAMPLE_PERIOD_US = 1000;   //20  
 const float DEFAULT_KP = .005;
 const float DEFAULT_KI = 1000;
-const float DEFAULT_KD = 0;
+const float DEFAULT_KD = 0; // TODO change
 
 //sets communication parameters
 const uint32_t SERIAL_BAUD = 1000000; //comment this out to disable serial communication

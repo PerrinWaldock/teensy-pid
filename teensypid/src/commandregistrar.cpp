@@ -13,6 +13,11 @@ uint8_t numberOfCommands = 0;
 
 bool processCommand(char* commandString)
 {
+    if (strlen(commandString) == 0)
+    {
+        return false;
+    }
+    
     char tempBuffer[TEMPORARY_BUFFER_LENGTH];
     for (uint8_t i = 0; i < numberOfCommands; i++)
     {
