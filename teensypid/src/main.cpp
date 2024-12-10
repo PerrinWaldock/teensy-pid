@@ -63,14 +63,11 @@ void setup()
 						DEFAULT_SAMPLE_PERIOD_US, 
 						setpointLimits, 
 						outputLimits};
-	Serial.printf("setup: kd:%f\n", params.kd);
 	pidController = new FPid(params, getSetPoint, getFeedback, writeDAC);
 
-	FPid& refpid = *pidController;
 	eepromManager = new EepromManager(*pidController, setpointManager->getSetPoints(), readAveragesPower);
 
 	CommandParserObjects commandParserObjects = {pidController, eepromManager, setpointManager, &readAveragesPower, &printOutput, &dataLog, &Serial};
-	Serial.printf("init addresses %i %i %i\n", pidController, &(*pidController), &refpid);
 	commandParser = new CommandParser(commandParserObjects);
 
 	#ifdef SERIAL_BAUD
@@ -103,7 +100,6 @@ void loop()
 			if (isLineAvailable())
 			{
 				char* line = readLine();
-				Serial.printf("About to parse %s\n", line);
 				commandParser->parse(line);
 			}
 		}
@@ -147,5 +143,5 @@ inline void setOutput(uint16_t out)
 void printStats(FPid& pidController)
 {
 	PidState state = pidController.getPidState();
-	Serial.printf("t: %i, sp: %i fb: %i op: %i ff: %i\n\r", state.iterationTime, state.setPoint, state.feedBack, state.output, pidController.getFeedForwardValue());
+	Serial.printf("t: %i, sp: %i fb: %i pd: %i op: %i ff: %i\n\r", state.iterationTime, state.setPoint, state.feedBack, state.pid, state.output, pidController.getFeedForwardValue());
 }

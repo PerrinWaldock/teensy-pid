@@ -6,6 +6,8 @@
 #define bound(x, a, b) (x < a ? a : (x > b ? b : x))
 #define sprint(x) Serial.print(x)
 
+const int US_TO_S = 1000000;
+
 // TODO define volts to int and ints to volt here to be used in commandregistrar
 
 typedef struct

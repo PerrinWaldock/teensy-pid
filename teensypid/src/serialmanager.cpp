@@ -49,8 +49,6 @@ char* readLine()
 {
 	while (!isLineAvailable());
 
-	Serial.println("Extracting command");
-
 	uint16_t charactersToCopy = (bufferPosition + INPUT_BUFFER_LENGTH - lastLinePosition)%INPUT_BUFFER_LENGTH;
 	for (uint16_t i = 0; i < charactersToCopy; i++)
 	{
@@ -59,8 +57,6 @@ char* readLine()
 	
 	lastLinePosition = (lastLinePosition + charactersToCopy)%INPUT_BUFFER_LENGTH;
 	lineAvailable = false;
-
-	Serial.printf("Extracted %s\n", outputBuffer);
 
 	return outputBuffer;
 }

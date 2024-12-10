@@ -139,12 +139,12 @@ CommandParser::CommandParser(CommandParserObjects objects)
 	addCommand(READ_AVERAGES_TOKEN GET_TOKEN, createHandler(getReadAverages), (void*) &(this->objects), "gets number of read averages");
 
 	addCommand(CALIBRATE_TOKEN, createHandler(calibrateFeedForward), (void*) &(this->objects), "calibrates feedforward lookup table");
-
 	addCommand(RESET_TOKEN, createHandler(resetPidState), (void*) &(this->objects), "resets PID state");
-
 	addCommand(EEPROM_TOKEN, createHandler(eepromReadWrite), (void*) &(this->objects), EEPROM_READ_TOKEN " to read parameters from EEPROM; " EEPROM_WRITE_TOKEN " to write parameters to EEPROM");
-
 	addCommand(PRINT_OUTPUT_TOKEN SET_TOKEN, createHandler(setPrintOutput), (void*) &(this->objects), "1 to print output, 0 to disable print output");
+
+	addCommand(PID_ENABLE_TOKEN SET_TOKEN, createHandler(setPidEnable), (void*) &(this->objects), "0 to disable pid, 1 to enable");
+	addCommand(PID_ENABLE_TOKEN GET_TOKEN, createHandler(getPidEnable), (void*) &(this->objects), "gets whether pid is enabled (0 off; 1 on)");
 
 	addCommand(LOG_TOKEN SET_TOKEN, createHandler(logSetter), (void*) &(this->objects), LOG_OFF_TOKEN " to turn logging off; " LOG_SINGLE_TOKEN " to log until buffer is full; " LOG_CONTINUOUS_TOKEN " to log continuously");
 	addCommand(LOG_TOKEN GET_TOKEN, createHandler(logGetter), (void*) &(this->objects), "to display inputs and outputs from the log");
@@ -152,7 +152,6 @@ CommandParser::CommandParser(CommandParserObjects objects)
 
 bool CommandParser::parse(char* s)
 {
-	objects.printer->printf("Parsing '%s'\n", s);
 	return processCommand(s);
 }
 
@@ -212,18 +211,12 @@ void setKd(CommandParserObjects* obj, char* s)
 	{
 		return;
 	}
-	Serial.printf("setting kd %i %i %s\n", obj, &(obj->pidController), s);
-	Serial.printf("addresses %i %i %i\n", obj, &(obj->log), (obj->setpointManager));
 	FPid& pidController = *(obj->pidController);
-	Serial.printf("AA %i\n", &pidController);
-	PidParams params = pidController.getParams(); //TODO fix below
-	Serial.printf("BB\n");
+	PidParams params = pidController.getParams();
 	params.kd = atof(s);
-	Serial.printf("CC%i\n", params.kd);
 	pidController.setParams(params);
-	Serial.printf("kd %i ", obj->pidController->getParams().kd, s);
 	checkConfigError(obj, s);
-	getKp(obj, s);
+	getKd(obj, s);
 }
 
 void getKd(CommandParserObjects* obj, char* s)
@@ -233,8 +226,7 @@ void getKd(CommandParserObjects* obj, char* s)
 		return;
 	}
 	FPid& pidController = *(obj->pidController);
-	PidParams params = pidController.getParams(); //TODO fix below
-	Serial.printf("getting kd");
+	PidParams params = pidController.getParams();
 	obj->printer->printf(KD_TOKEN SET_TOKEN "%f" EOL, params.kd);
 }
 
@@ -257,7 +249,7 @@ void setLoopRate(CommandParserObjects* obj, char* s)
 	}
 	FPid& pidController = *(obj->pidController);
 	PidParams params = pidController.getParams(); //TODO fix below
-	params.loopPeriod_us = (uint32_t)(1000000/atof(s));
+	params.loopPeriod_us = (uint32_t)(US_TO_S/atof(s));
 	pidController.setParams(params);
 	checkConfigError(obj, s);
 	getKp(obj, s);
@@ -271,7 +263,7 @@ void getLoopRate(CommandParserObjects* obj, char* s)
 	}
 	FPid& pidController = *(obj->pidController);
 	PidParams params = pidController.getParams(); //TODO fix below
-	obj->printer->printf(LOOP_RATE_TOKEN SET_TOKEN "%f Hz" EOL, 1000000.0/params.loopPeriod_us);
+	obj->printer->printf(LOOP_RATE_TOKEN SET_TOKEN "%f Hz" EOL, (float)US_TO_S/params.loopPeriod_us);
 }
 
 void setSetPointMax(CommandParserObjects* obj, char* s)
@@ -440,7 +432,7 @@ void getSetPointsInt(CommandParserObjects* obj, char* s)
 	char* delimiter = strstr(s, GET_TOKEN);
 	uint8_t minIndex = 0;
 	uint8_t maxIndex = NUM_SETPOINTS;
-	if (delimiter != nullptr)
+	if (delimiter != nullptr && delimiter - s != 0)
 	{
 		*delimiter = '\0';
 		uint8_t index = atoi(s);
@@ -466,7 +458,7 @@ void getSetPointsFloat(CommandParserObjects* obj, char* s)
 	char* delimiter = strstr(s, GET_TOKEN);
 	uint8_t minIndex = 0;
 	uint8_t maxIndex = NUM_SETPOINTS;
-	if (delimiter != nullptr)
+	if (delimiter != nullptr && delimiter - s != 0)
 	{
 		*delimiter = '\0';
 		uint8_t index = atoi(s);
@@ -479,7 +471,7 @@ void getSetPointsFloat(CommandParserObjects* obj, char* s)
 	for (uint8_t index = minIndex; index < maxIndex; index++)
 	{
 		const char* isActiveSetpoint = index == obj->setpointManager->getSetPointIndex() ? " <-" : "";
-		obj->printer->printf(SET_POINT_INT_TOKEN "%i" SET_TOKEN "%f V%s" EOL, index, int2inputVolts(obj->setpointManager->getSetPoint(index)), isActiveSetpoint);
+		obj->printer->printf(SET_POINT_FLOAT_TOKEN "%i" SET_TOKEN "%f V%s" EOL, index, int2inputVolts(obj->setpointManager->getSetPoint(index)), isActiveSetpoint);
 	}
 }
 

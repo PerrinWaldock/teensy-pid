@@ -3,6 +3,16 @@
 
 #include <Arduino.h>
 
+#if defined(__MK66FX1M0__) //3.6
+    #define TEENSY TEENSY36
+#elif defined(__MK64FX512__) //3.5
+    #define TEENSY TEENSY35
+#elif defined(__MK20DX256__) //3.2
+    #define TEENSY TEENSY32
+#elif defined(__IMXRT1062__) //4.x
+    #define TEENSY TEENSY40
+#endif
+
 typedef enum {
 	SOFTWARE_INPUT,
 	DIGITAL_INPUT,

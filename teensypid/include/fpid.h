@@ -28,8 +28,10 @@ typedef struct
     uint16_t setPoint;
     uint16_t feedBack;
     uint16_t output;
+    int16_t pid;
     uint16_t iterationTime;
     bool active;
+    bool performCalc;
     bool railed;
 } PidState;
 
@@ -58,10 +60,12 @@ class FPid
     private:
         uint16_t lastSetPoint = 0;
         uint16_t lastFeedBack = 0;
+        int16_t lastPid = 0;
         uint16_t lastOutput = 0;
         uint16_t lastIterationTime = 0;
         bool pidActive = false;
         bool inputRailed = false;
+        bool performCalc = true;
         elapsedMicros timeSinceLastRun;
         PidParams params;
         FastPID pidController;

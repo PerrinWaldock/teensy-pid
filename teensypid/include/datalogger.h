@@ -9,7 +9,11 @@ typedef enum{
 	LOG_CONTINUOUS	//continue logging, overwriting old data
 } LogState;
 
-const uint32_t TOTAL_LOG_SPACE = 100000;
+#if TEENSY==TEENSY32
+	const uint32_t TOTAL_LOG_SPACE = 1000;
+#elif TEENSY==TEENSY40
+	const uint32_t TOTAL_LOG_SPACE = 100000;
+#endif
 const uint32_t INPUT_LOG_SIZE = TOTAL_LOG_SPACE/2/sizeof(uint16_t);
 
 typedef struct {

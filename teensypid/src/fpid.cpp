@@ -12,13 +12,10 @@ FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedba
     this->getFeedback = getFeedback;
     this->setOutput = setOutput;
 
-    this->pidController = FastPID(params.kp, params.ki, params.kd, 1000000/params.loopPeriod_us, OUTPUT_BITS, true);
+    this->pidController = FastPID(params.kp, params.ki, params.kd, (float)US_TO_S/params.loopPeriod_us, OUTPUT_BITS, true);
     this->feedForward = FeedForwardHelper(FF_CALIBRATION_ARRAY_BITS, FEED_FORWARD_ARRAY_BITS, CALIBRATION_AVERAGES, getFeedback, setOutput);
 
-    Serial.printf("FPid(): kd:%f\n", params.kd);
     setParams(params);
-    Serial.printf("FPid() post set: kd:%f\n", this->params.kd);
-    Serial.printf("FPid() post set accesor: kd:%f\n", getParams().kd);
 }
 
 // TODO add timing externally
@@ -39,14 +36,14 @@ void FPid::iterate()
     if (!pidActive)
     {
         // TODO consider still recording feedback value here
+        lastIterationTime = 0;
         return;
     }
 
     uint16_t setPoint = (*getSetPoint)();
 
-    //TODO check setpoint changed across a range
     int16_t setPointChange = setPoint - lastSetPoint;
-    bool setPointChanged = setPointChange <= SAME_SETPOINT_TOLERANCE && setPointChange >= -1*SAME_SETPOINT_TOLERANCE;
+    bool setPointChanged = setPointChange >= SAME_SETPOINT_TOLERANCE || setPointChange <= -1*SAME_SETPOINT_TOLERANCE;
     lastSetPoint = setPoint;
     
     if (setPointChanged)
@@ -75,15 +72,16 @@ void FPid::iterate()
             #if ! FEED_FORWARD && CLEAR_INTEGRAL_WHEN_RAILED
                 pidController.clear();
             #endif
+            lastIterationTime = timeSinceLastRun;
             return;
         }
     }
 
-    bool performPidCalculation = true;
+    performCalc = true;
     #if INPUT_MODE == DIGITAL_INPUT && FEED_FORWARD
         if (setPointChanged)
         {
-            performPidCalculation = false;
+            performCalc = false;
         }
     #endif
 
@@ -93,18 +91,16 @@ void FPid::iterate()
         int32_t output = HALF_MAX_OUTPUT;
     #endif
 
-    if (performPidCalculation)
+    if (performCalc)
     {
-        uint16_t feedback = (*getFeedback)();
-        lastFeedBack = feedback;
-        // TODO record input
-        int16_t step = pidController.step(setPoint - HALF_MAX_INPUT, feedback - HALF_MAX_INPUT);
+        lastFeedBack = (*getFeedback)();;
+        lastPid = pidController.step(setPoint - HALF_MAX_INPUT, lastFeedBack - HALF_MAX_INPUT);
         
         #if NEGATIVE_OUTPUT
-            step *= -1;
+            lastPid *= -1;
         #endif
 
-        output += step;
+        output += lastPid;
     }
 
     setOutputWithLimits(output);
@@ -112,25 +108,25 @@ void FPid::iterate()
 }
 
 
-void FPid::setOutputWithLimits(uint32_t outPut)
+void FPid::setOutputWithLimits(uint32_t output)
 {
-    if (outPut > params.outputLimit.max)
+    if (output > params.outputLimit.max)
     {
-        outPut = params.outputLimit.max;
+        output = params.outputLimit.max;
     }
-    else if(outPut < params.outputLimit.min)
+    else if(output < params.outputLimit.min)
     {
-        outPut = params.outputLimit.min;
+        output = params.outputLimit.min;
     }
 
-    lastOutput = outPut;
-    (*setOutput)(outPut);
+    lastOutput = output;
+    (*setOutput)(output);
 }
 
 void FPid::setParams(PidParams ps)
 {
     params = ps;
-    pidController.configure(params.kp, params.ki, params.kd, 1000000/params.loopPeriod_us, OUTPUT_BITS, true);
+    pidController.configure(params.kp, params.ki, params.kd, (float)US_TO_S/params.loopPeriod_us, OUTPUT_BITS, true);
     reset();
 }
 
@@ -146,8 +142,6 @@ void FPid::reset()
 
 PidParams FPid::getParams()
 {
-    Serial.printf("getting params\n");
-    Serial.printf("params kd -> %f\n", params.kd);
     return params;
 }
 
@@ -163,8 +157,10 @@ PidState FPid::getPidState()
         lastSetPoint,
         lastFeedBack,
         lastOutput,
+        lastPid,
         lastIterationTime,
         pidActive,
+        performCalc,
         inputRailed
     };
 }
