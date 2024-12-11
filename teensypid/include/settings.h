@@ -54,6 +54,7 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 
 #define NEGATIVE_OUTPUT_SLOPE false // set to true if a larger output value causes a smaller feedback value
 
+#define RECORD_FEEDBACK_ALL_ITERATIONS false
 #define SAVE_DATA true  //saves calibration data and pid constants
 
 #define DEFAULT_SETPOINT .5

@@ -12,6 +12,11 @@
         "utility": "cpp",
         "commandregistrar.h": "c",
         "*.tpp": "c",
-        "memory": "cpp"
+        "memory": "cpp",
+        "*.tcc": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp"
     }
 }

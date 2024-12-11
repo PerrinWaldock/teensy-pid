@@ -27,16 +27,19 @@ FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedba
 
 void FPid::iterate()
 {
-    // wait until correct time to run TODO better implementation
     #if PRECISE_LOOP_TIMING
         while (!inputRailed && timeSinceLastRun < params.loopPeriod_us);
     #endif
     timeSinceLastRun = 0; // reset time
+    performCalc = true;
 
     if (!pidActive)
     {
         // TODO consider still recording feedback value here
         lastIterationTime = 0;
+        #if RECORD_FEEDBACK_ALL_ITERATIONS
+            lastFeedBack = getFeedback();
+        #endif
         return;
     }
 
@@ -72,12 +75,12 @@ void FPid::iterate()
             #if ! FEED_FORWARD && CLEAR_INTEGRAL_WHEN_RAILED
                 pidController.clear();
             #endif
-            lastIterationTime = timeSinceLastRun;
+            #if RECORD_FEEDBACK_ALL_ITERATIONS
+                lastFeedBack = getFeedback();
+            #endif
             return;
         }
     }
-
-    performCalc = true;
     #if INPUT_MODE == DIGITAL_INPUT && FEED_FORWARD
         if (setPointChanged)
         {
@@ -101,6 +104,12 @@ void FPid::iterate()
         #endif
 
         output += lastPid;
+    }
+    else
+    {
+        #if RECORD_FEEDBACK_ALL_ITERATIONS
+            lastFeedBack = getFeedback();
+        #endif
     }
 
     setOutputWithLimits(output);
