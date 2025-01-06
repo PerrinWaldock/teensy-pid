@@ -85,7 +85,7 @@ void setup()
 		}
 	#endif
 
-	#if SAVE_DATA
+	#if SAVE_DATA && LOAD_ON_STARTUP
 		eepromManager->load();
 	#else
 		pidController->updateFeedForward();
@@ -149,5 +149,9 @@ inline void setOutput(uint16_t out)
 void printStats(FPid& pidController)
 {
 	PidState state = pidController.getPidState();
+	if (!state.active || state.railed)
+	{
+		state.feedBack = getFeedback();
+	}
 	Serial.printf("t: %i, sp: %i fb: %i pd: %i op: %i ff: %i\n\r", state.iterationTime, state.setPoint, state.feedBack, state.pid, state.output, pidController.getFeedForwardValue());
 }

@@ -1,4 +1,5 @@
 #include "fpid.h"
+#include <Arduino.h> //TODO remove
 
 const uint16_t SAME_SETPOINT_TOLERANCE = inputVolts2int(.05);
 
@@ -18,13 +19,6 @@ FPid::FPid(PidParams params, uint16_t (*getSetPoint)(void), uint16_t (*getFeedba
     setParams(params);
 }
 
-// TODO add timing externally
-/*
-#if TIME_FEEDBACK_LOOP
-    elapsedMicros timeSinceLoopStart;
-#endif
-*/
-
 void FPid::iterate()
 {
     #if PRECISE_LOOP_TIMING
@@ -35,7 +29,6 @@ void FPid::iterate()
 
     if (!pidActive)
     {
-        // TODO consider still recording feedback value here
         lastIterationTime = 0;
         #if RECORD_FEEDBACK_ALL_ITERATIONS
             lastFeedBack = getFeedback();
@@ -44,42 +37,43 @@ void FPid::iterate()
     }
 
     uint16_t setPoint = (*getSetPoint)();
-
     int16_t setPointChange = setPoint - lastSetPoint;
     bool setPointChanged = setPointChange >= SAME_SETPOINT_TOLERANCE || setPointChange <= -1*SAME_SETPOINT_TOLERANCE;
     lastSetPoint = setPoint;
     
-    if (setPointChanged)
+    if (setPoint < params.setPointLimit.min)
     {
-        if (setPoint < params.setPointLimit.min)
-        {
-            #if NEGATIVE_OUTPUT 
-                setOutputWithLimits(params.outputLimit.max);
-            #else
-                setOutputWithLimits(params.outputLimit.min);
-            #endif
-            inputRailed = true;
-        }
-        else if (setPoint > params.setPointLimit.max)
-        {
-            #if NEGATIVE_OUTPUT 
-                setOutputWithLimits(params.outputLimit.min);
-            #else
-                setOutputWithLimits(params.outputLimit.max);
-            #endif
-            inputRailed = true;
-        }
+        #if NEGATIVE_OUTPUT 
+            setOutputWithLimits(params.outputLimit.max);
+        #else
+            setOutputWithLimits(params.outputLimit.min);
+        #endif
+        inputRailed = true;
+    }
+    else if (setPoint > params.setPointLimit.max)
+    {
+        #if NEGATIVE_OUTPUT 
+            setOutputWithLimits(params.outputLimit.min);
+        #else
+            setOutputWithLimits(params.outputLimit.max);
+        #endif
+        inputRailed = true;
+    }
+    else
+    {
+        inputRailed = false;
+    }
 
-        if (inputRailed)
-        {
-            #if ! FEED_FORWARD && CLEAR_INTEGRAL_WHEN_RAILED
-                pidController.clear();
-            #endif
-            #if RECORD_FEEDBACK_ALL_ITERATIONS
-                lastFeedBack = getFeedback();
-            #endif
-            return;
-        }
+    if (inputRailed)
+    {
+        #if ! FEED_FORWARD && CLEAR_INTEGRAL_WHEN_RAILED
+            pidController.clear();
+        #endif
+        #if RECORD_FEEDBACK_ALL_ITERATIONS
+            lastFeedBack = getFeedback();
+        #endif
+        lastIterationTime = timeSinceLastRun;
+        return;
     }
     #if INPUT_MODE == DIGITAL_INPUT && FEED_FORWARD
         if (setPointChanged)

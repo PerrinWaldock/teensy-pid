@@ -56,6 +56,7 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 
 #define RECORD_FEEDBACK_ALL_ITERATIONS false
 #define SAVE_DATA true  //saves calibration data and pid constants
+#define LOAD_ON_STARTUP true
 
 #define DEFAULT_SETPOINT .5
 #define DEFAULT_READ_AVERAGES_POWER 1 //TODO separate feedback and setpoint read averages
