@@ -18,7 +18,7 @@ uint16_t readMultiple(uint16_t (*readData)(void), int8_t averages)
 
 uint16_t FeedForwardHelper::feedForwardCalibrationOutput(uint16_t x)
 {
-    return (uint16_t)((x*((1 << arraySize) - 1))/((1 << readingsSize) - 1));
+    return (uint16_t)((x*arraySize)/readingsSize);
 }
 
 FeedForwardHelper::FeedForwardHelper()
@@ -30,7 +30,7 @@ FeedForwardHelper::FeedForwardHelper()
 FeedForwardHelper::FeedForwardHelper(uint8_t calibrationBits, uint8_t feedForwardBits, uint8_t numberOfAverages, uint16_t (*getFeedback)(void), void (*setOutput)(uint16_t))
 {
     readingsSize = min(1 << calibrationBits, MAX_ARRAY_SIZE);
-    arraySize = min(feedForwardBits, MAX_ARRAY_SIZE);
+    arraySize = min(1 << feedForwardBits, MAX_ARRAY_SIZE);
     adcReadings = numberOfAverages;
     this->getFeedback = getFeedback;
     this->setOutput = setOutput;

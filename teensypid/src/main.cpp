@@ -11,6 +11,7 @@
 #include "pins.h"
 #include "setpointmanager.h"
 #include "datalogger.h"
+#include "printstate.h"
 
 /*
 TODO
@@ -32,8 +33,11 @@ void setOutput(uint16_t);
 void printStats(FPid& pidController);
 
 DataLog dataLog = GetNewDataLog();
-uint8_t readAveragesPower = 0;
-bool printOutput = false;
+uint8_t readAveragesPower = DEFAULT_READ_AVERAGES_POWER;
+PrintState printState = {
+	DEFAULT_PRINT_PERIOD_MS,
+	false
+};
 
 SetpointManager* setpointManager;
 FPid* pidController;
@@ -67,7 +71,7 @@ void setup()
 
 	eepromManager = new EepromManager(*pidController, setpointManager->getSetPoints(), readAveragesPower);
 
-	CommandParserObjects commandParserObjects = {pidController, eepromManager, setpointManager, &readAveragesPower, &printOutput, &dataLog, &Serial};
+	CommandParserObjects commandParserObjects = {pidController, eepromManager, setpointManager, &readAveragesPower, &printState, &dataLog, &Serial};
 	commandParser = new CommandParser(commandParserObjects);
 
 	#ifdef SERIAL_BAUD
@@ -82,7 +86,9 @@ void setup()
 	#endif
 
 	#if SAVE_DATA
-		//eepromManager->load();
+		eepromManager->load();
+	#else
+		pidController->updateFeedForward();
 	#endif
 }
 
@@ -104,7 +110,7 @@ void loop()
 			}
 		}
 
-		if (timeSinceLastPrint >= PRINT_PERIOD_MS && printOutput)
+		if (timeSinceLastPrint >= printState.printPeriod_ms && printState.printOutput)
 		{
 			timeSinceLastPrint = 0;
 			printStats(*pidController);

@@ -56,6 +56,7 @@ class FPid
         uint16_t getFeedForwardValue();
 
         void setOutputOpenLoop(uint16_t value);
+        uint16_t getFeedbackValue();
         
     private:
         uint16_t lastSetPoint = 0;

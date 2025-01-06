@@ -5,19 +5,14 @@
 #include "eeprom-manager.h"
 #include "setpointmanager.h"
 #include "datalogger.h"
-
-/*
-TODO
-    create a CommandParserObjects struct that includes a print function
-    pass that struct to the event handlers
-*/
+#include "printstate.h"
 
 struct CommandParserObjects {
     FPid* pidController;
     EepromManager* eepromManager;
     SetpointManager* setpointManager;
     uint8_t* readAveragesPower;
-    bool* printOutput;
+    PrintState* printState;
     DataLog* log;
     Print* printer;
 };

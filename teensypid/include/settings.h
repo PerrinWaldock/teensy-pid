@@ -24,7 +24,7 @@ typedef enum {
 ///////////// Defaults
 
 //sets the PID loop frequency (too low and the code won't work properly)
-const uint32_t DEFAULT_SAMPLE_PERIOD_US = 1000;   //20  
+const uint32_t DEFAULT_SAMPLE_PERIOD_US = 20;
 const float DEFAULT_KP = .005;
 const float DEFAULT_KI = 1000;
 const float DEFAULT_KD = 0; // TODO change
@@ -32,7 +32,7 @@ const float DEFAULT_KD = 0; // TODO change
 //sets communication parameters
 const uint32_t SERIAL_BAUD = 1000000; //comment this out to disable serial communication
 const uint16_t SERIAL_CHECK_PERIOD_MS = 10;
-const uint16_t PRINT_PERIOD_MS = 100;      //how quickly it prints
+const uint16_t DEFAULT_PRINT_PERIOD_MS = 500;      //how quickly it prints
 
 #define PRECISE_LOOP_TIMING false
 
@@ -58,7 +58,7 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 #define SAVE_DATA true  //saves calibration data and pid constants
 
 #define DEFAULT_SETPOINT .5
-#define DEFAULT_READ_AVERAGES_POWER 3 //TODO separate feedback and setpoint read averages
+#define DEFAULT_READ_AVERAGES_POWER 1 //TODO separate feedback and setpoint read averages
 #if INPUT_MODE == ANALOG_INPUT
 	#define ANALOG_READ_AVERAGES 1 //
 	#define ANALOG_REFERENCE_RESOLUTION 12
@@ -94,7 +94,7 @@ const float DEFAULT_MAX_OUTPUT_VOLTS = DAC_REFERENCE_VOLTAGE;
 
 #if FEED_FORWARD
     const uint32_t FEED_FORWARD_ARRAY_BITS = DAC_BITS; //want to have a value for each and every setpoint
-    const uint32_t FF_CALIBRATION_ARRAY_BITS = DAC_BITS - 4;
+    const uint32_t FF_CALIBRATION_ARRAY_BITS = DAC_BITS - 8;
     const uint16_t CALIBRATION_AVERAGES = 256;
 	const uint16_t CALIBRATION_SETTLE_DELAY_US = 10;
 	const uint32_t CALIBRATION_PRE_SETTLE_DELAY_US = 10000;

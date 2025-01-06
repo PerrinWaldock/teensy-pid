@@ -26,12 +26,15 @@
 
 #define PID_ENABLE_TOKEN "pa"
 #define PRINT_OUTPUT_TOKEN "po"
+#define PRINT_PERIOD_TOKEN "pp"
 #define CALIBRATE_TOKEN "cf"
+#define FEEDFORWARD_TOKEN "ff"
 #define EEPROM_TOKEN "ew"
 #define EEPROM_WRITE_TOKEN "w"
 #define EEPROM_READ_TOKEN "r"
 #define RESET_TOKEN "cl"
 #define SET_OUTPUT_TOKEN "ov"
+#define GET_FEEDBACK_TOKEN "fv"
 
 #define LOG_TOKEN "lo"
 #define LOG_OFF_TOKEN "o"
@@ -73,10 +76,13 @@ void getReadAverages(CommandParserObjects*, char*);
 
 void setOutput(CommandParserObjects*, char*);
 void getOutput(CommandParserObjects*, char*);
+void getFeedback(CommandParserObjects*, char*);
 void setPidEnable(CommandParserObjects*, char*);
 void getPidEnable(CommandParserObjects*, char*);
 
 void setPrintOutput(CommandParserObjects*, char*);
+void setPrintPeriod(CommandParserObjects*, char*);
+void printFeedForward(CommandParserObjects*, char*);
 void calibrateFeedForward(CommandParserObjects*, char*);
 void eepromReadWrite(CommandParserObjects*, char*);
 void resetPidState(CommandParserObjects*, char*);
@@ -92,7 +98,7 @@ bool areNullPointers(CommandParserObjects objects)
 	|| objects.eepromManager == nullptr
 	|| objects.setpointManager == nullptr
 	|| objects.readAveragesPower == nullptr
-	|| objects.printOutput == nullptr
+	|| objects.printState == nullptr
 	|| objects.log == nullptr
 	|| objects.printer == nullptr;
 }
@@ -138,13 +144,18 @@ CommandParser::CommandParser(CommandParserObjects objects)
 	addCommand(READ_AVERAGES_TOKEN SET_TOKEN, createHandler(setReadAverages), (void*) &(this->objects), "sets number of read averages (must be a power of 2)");
 	addCommand(READ_AVERAGES_TOKEN GET_TOKEN, createHandler(getReadAverages), (void*) &(this->objects), "gets number of read averages");
 
+	addCommand(FEEDFORWARD_TOKEN GET_TOKEN, createHandler(printFeedForward), (void*) &(this->objects), "prints the feedforward lookup table");	
 	addCommand(CALIBRATE_TOKEN, createHandler(calibrateFeedForward), (void*) &(this->objects), "calibrates feedforward lookup table");
 	addCommand(RESET_TOKEN, createHandler(resetPidState), (void*) &(this->objects), "resets PID state");
-	addCommand(EEPROM_TOKEN, createHandler(eepromReadWrite), (void*) &(this->objects), EEPROM_READ_TOKEN " to read parameters from EEPROM; " EEPROM_WRITE_TOKEN " to write parameters to EEPROM");
+	addCommand(EEPROM_TOKEN SET_TOKEN, createHandler(eepromReadWrite), (void*) &(this->objects), EEPROM_READ_TOKEN " to read parameters from EEPROM; " EEPROM_WRITE_TOKEN " to write parameters to EEPROM");
 	addCommand(PRINT_OUTPUT_TOKEN SET_TOKEN, createHandler(setPrintOutput), (void*) &(this->objects), "1 to print output, 0 to disable print output");
+	addCommand(PRINT_PERIOD_TOKEN SET_TOKEN, createHandler(setPrintPeriod), (void*) &(this->objects), "set print output period (ms)");
 
 	addCommand(PID_ENABLE_TOKEN SET_TOKEN, createHandler(setPidEnable), (void*) &(this->objects), "0 to disable pid, 1 to enable");
 	addCommand(PID_ENABLE_TOKEN GET_TOKEN, createHandler(getPidEnable), (void*) &(this->objects), "gets whether pid is enabled (0 off; 1 on)");
+	addCommand(SET_OUTPUT_TOKEN SET_TOKEN, createHandler(setOutput), (void*) &(this->objects), "to set output voltage");
+	addCommand(SET_OUTPUT_TOKEN GET_TOKEN, createHandler(getOutput), (void*) &(this->objects), "to get output voltage");
+	addCommand(GET_FEEDBACK_TOKEN GET_TOKEN, createHandler(getFeedback), (void*) &(this->objects), "to get feedback voltage");
 
 	addCommand(LOG_TOKEN SET_TOKEN, createHandler(logSetter), (void*) &(this->objects), LOG_OFF_TOKEN " to turn logging off; " LOG_SINGLE_TOKEN " to log until buffer is full; " LOG_CONTINUOUS_TOKEN " to log continuously");
 	addCommand(LOG_TOKEN GET_TOKEN, createHandler(logGetter), (void*) &(this->objects), "to display inputs and outputs from the log");
@@ -495,6 +506,20 @@ void getReadAverages(CommandParserObjects* obj, char* s)
 	obj->printer->printf(READ_AVERAGES_TOKEN SET_TOKEN "%i" EOL, 1 << *(obj->readAveragesPower));
 }
 
+void printFeedForward(CommandParserObjects* obj, char* s)
+{
+	if (handlerHasNullPointer(obj, s))
+	{
+		return;
+	}
+	int32_t length;
+	uint16_t* values = obj->pidController->getFeedForwardReadings(length);
+	for (int32_t i = 0; i < length; i++)
+	{
+		obj->printer->printf("%i: %i\n", i, values[i]);
+	}
+}
+
 void calibrateFeedForward(CommandParserObjects* obj, char* s)
 {
 	if (handlerHasNullPointer(obj, s))
@@ -512,13 +537,18 @@ void eepromReadWrite(CommandParserObjects* obj, char* s)
 		return;
 	}
 	
-	if (strcmp(s, EEPROM_READ_TOKEN))
+	if (strcmp(s, EEPROM_READ_TOKEN) == 0)
 	{
 		obj->eepromManager->load();
 	}
-	else if (strcmp(s, EEPROM_WRITE_TOKEN))
+	else if (strcmp(s, EEPROM_WRITE_TOKEN) == 0)
 	{
 		obj->eepromManager->save();
+	}
+	else
+	{
+		obj->printer->printf("%s not recognized" EOL, s);
+		return;
 	}
 	obj->printer->printf(EEPROM_TOKEN SET_TOKEN "%s" EOL, s);
 }
@@ -573,13 +603,33 @@ void getOutput(CommandParserObjects* obj, char* s)
 	obj->printer->printf(SET_OUTPUT_TOKEN SET_TOKEN "%f V" EOL, int2outputVolts(val));
 }
 
+void getFeedback(CommandParserObjects* obj, char* s)
+{
+	if (handlerHasNullPointer(obj, s))
+	{
+		return;
+	}
+	uint16_t val = obj->pidController->getFeedbackValue();
+	obj->printer->printf(GET_FEEDBACK_TOKEN SET_TOKEN "%f V" EOL, int2outputVolts(val));
+}
+
 void setPrintOutput(CommandParserObjects* obj, char* s)
 {
 	if (handlerHasNullPointer(obj, s))
 	{
 		return;
 	}
-	*(obj->printOutput) = atoi(s);
+	obj->printState->printOutput = atoi(s);
+}
+
+void setPrintPeriod(CommandParserObjects* obj, char* s)
+{
+	if (handlerHasNullPointer(obj, s))
+	{
+		return;
+	}
+	obj->printState->printPeriod_ms = atoi(s);
+	obj->printer->printf(PRINT_PERIOD_TOKEN SET_TOKEN "%i ms" EOL, obj->printState->printPeriod_ms);
 }
 
 void checkConfigError(CommandParserObjects* obj, char *s)
@@ -602,17 +652,17 @@ void logSetter(CommandParserObjects* obj, char* s)
 	}
 	DataLog& log = *(obj->log);
 
-	if (strcmp(s, LOG_OFF_TOKEN))
+	if (strcmp(s, LOG_OFF_TOKEN) == 0)
 	{
 		log.state = LOG_OFF;
 		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_OFF_TOKEN EOL);
 	}
-	else if(strcmp(s, LOG_SINGLE_TOKEN))
+	else if(strcmp(s, LOG_SINGLE_TOKEN) == 0)
 	{
 		log.state = LOG_SINGLE;
 		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_SINGLE_TOKEN EOL);
 	}
-	else if (strcmp(s, LOG_CONTINUOUS_TOKEN))
+	else if (strcmp(s, LOG_CONTINUOUS_TOKEN) == 0)
 	{
 		log.state = LOG_CONTINUOUS;
 		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_CONTINUOUS_TOKEN EOL);
@@ -620,6 +670,7 @@ void logSetter(CommandParserObjects* obj, char* s)
 	else
 	{
 		obj->printer->printf("%s not recognized" EOL, s);
+		return;
 	}
 }
 

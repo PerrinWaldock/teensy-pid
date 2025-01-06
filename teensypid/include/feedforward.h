@@ -16,7 +16,7 @@
 	#define CALIBRATION_PRE_SETTLE_DELAY_US 10000
 #endif
 
-const uint32_t MAX_ARRAY_SIZE = MAX_INPUT;
+const int32_t MAX_ARRAY_SIZE = MAX_INPUT + 1;
 
 class FeedForwardHelper
 {

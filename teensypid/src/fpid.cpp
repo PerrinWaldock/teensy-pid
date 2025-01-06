@@ -157,6 +157,10 @@ PidParams FPid::getParams()
 void FPid::setPidActive(bool active)
 {
     pidActive = active;
+    if (!pidActive)
+    {
+        reset();
+    }
 }
 
 PidState FPid::getPidState()
@@ -215,4 +219,9 @@ void FPid::setOutputOpenLoop(uint16_t value)
     pidActive = false;
     reset();
     setOutputWithLimits(value);
+}
+
+uint16_t FPid::getFeedbackValue()
+{
+    return (*getFeedback)();
 }
