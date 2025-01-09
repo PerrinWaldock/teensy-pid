@@ -90,6 +90,8 @@ void setup()
 	#else
 		pidController->updateFeedForward();
 	#endif
+
+	pidController->setPidActive(true);
 }
 
 void loop()
