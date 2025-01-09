@@ -8,7 +8,7 @@ uint16_t inputVolts2int(float x)
 
 float int2inputVolts(uint16_t x)
 {
-    return x*ADC_REFERENCE_VOLTAGE/MAX_INPUT;
+    return (x*ADC_REFERENCE_VOLTAGE)/MAX_INPUT;
 }
 
 uint16_t outputVolts2int(float x)

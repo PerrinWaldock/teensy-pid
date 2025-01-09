@@ -123,8 +123,8 @@ CommandParser::CommandParser(CommandParserObjects objects)
 	addCommand(KD_TOKEN GET_TOKEN, createHandler(getKd), (void*) &(this->objects), "get kd (float)");
 	addCommand(KS_TOKEN GET_TOKEN, createHandler(getKs), (void*) &(this->objects), "gets all PID constants");
 
-	addCommand(LOOP_RATE_TOKEN SET_TOKEN, createHandler(setLoopRate), (void*) &(this->objects), "sets loop rate (Hz)");
-	addCommand(LOOP_RATE_TOKEN GET_TOKEN, createHandler(getLoopRate), (void*) &(this->objects), "gets loop rate (Hz)");
+	addCommand(LOOP_RATE_TOKEN SET_TOKEN, createHandler(setLoopRate), (void*) &(this->objects), "sets nominal loop rate (Hz)");
+	addCommand(LOOP_RATE_TOKEN GET_TOKEN, createHandler(getLoopRate), (void*) &(this->objects), "gets nominal loop rate (Hz)");
 
 	addCommand(SET_POINT_MAX_TOKEN SET_TOKEN, createHandler(setSetPointMax), (void*) &(this->objects), "sets maximum set point (V)");
 	addCommand(SET_POINT_MIN_TOKEN SET_TOKEN, createHandler(setSetPointMin), (void*) &(this->objects), "sets minimum set point (V)");
@@ -263,7 +263,7 @@ void setLoopRate(CommandParserObjects* obj, char* s)
 	params.loopPeriod_us = (uint32_t)(US_TO_S/atof(s));
 	pidController.setParams(params);
 	checkConfigError(obj, s);
-	getKp(obj, s);
+	getLoopRate(obj, s);
 }
 
 void getLoopRate(CommandParserObjects* obj, char* s)

@@ -1,6 +1,10 @@
 #include "feedforward.h"
 #include "utils.hpp"
 
+#define ADJUST_SETPOINTS true
+#define CALC_MIN_SETPOINT(low, high) ((high - low)/100 + low)
+#define CALC_MAX_SETPOINT(low, high) (high - (high - low)/100)
+
 uint16_t readMultiple(uint16_t (*readData)(void), int8_t averages)
 {
     if (averages <= 0)
@@ -141,8 +145,10 @@ Extrema FeedForwardHelper::calculateArrayAndSetpointLimits(Extrema outputLimits)
             //feedForward[desired] = ffCalibrationOutput(0) + (desired - ffCalibration[0])*(ffCalibrationOutput(FF_CALIBRATION_ARRAY_LENGTH-1) - ffCalibrationOutput(0))/(ffCalibration[FF_CALIBRATION_ARRAY_LENGTH-1] - ffCalibration[0]); //linear interpolate beyond ends
         }
 
-        minSetPoint = 2*minValue + 1;
-        maxSetPoint = .98*maxValue - 1;
+        #if ADJUST_SETPOINTS
+            minSetPoint = CALC_MIN_SETPOINT(minValue, maxValue);
+            maxSetPoint = CALC_MAX_SETPOINT(minValue, maxValue);
+        #endif
         array[desired] = bound(array[desired], min(outputLimits.min, outputLimits.max), max(outputLimits.min, outputLimits.max));
     }
 

@@ -95,7 +95,7 @@ const float DEFAULT_MAX_OUTPUT_VOLTS = DAC_REFERENCE_VOLTAGE;
 
 #if FEED_FORWARD
     const uint32_t FEED_FORWARD_ARRAY_BITS = DAC_BITS; //want to have a value for each and every setpoint
-    const uint32_t FF_CALIBRATION_ARRAY_BITS = DAC_BITS - 8;
+    const uint32_t FF_CALIBRATION_ARRAY_BITS = 8;
     const uint16_t CALIBRATION_AVERAGES = 256;
 	const uint16_t CALIBRATION_SETTLE_DELAY_US = 10;
 	const uint32_t CALIBRATION_PRE_SETTLE_DELAY_US = 10000;
