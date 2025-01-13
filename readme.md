@@ -49,7 +49,7 @@ The `settings.h` file can be changed to modify the feedback controller's behavio
 * `INPUT_MODE` sets the type of input that the feedback controller uses to select its state. `DIGITAL_INPUT` selects preprogrammed set voltage number `PIN_REFERENCE1*2 + PIN_REFERENCE0`, `ANALOG_INPUT` uses the voltage on `PIN_REFERENCE`, and `SOFTWARE_INPUT` only accepts software changes to the set voltage. Note that the `ANALOG_INPUT` mode is not currently well-tested.
   * It may be advantageous to reduce `ANALOG_REFERENCE_RESOLUTION` to 8 or lower to speed up the loop frequency.
   * `NUM_SETPOINTS` is the number of setpoints that can be selected in digital mode. Do not change this without changing the PCB and number of setpoint pins.
-* `FEEDFORWARD` enables feedforward control. One can characterize the transfer function of the system via a serial command, then perform corrections to the feedforward function using PID. It generally produces faster rise times than standard PID feedback control.
+* `FEEDFORWARD` enables feedforward control. One can characterize the transfer function of the system via a serial command, then perform corrections to the feedforward function using PID. It generally produces faster rise times than standard PID feedback control, but the `CALIBRATION_SETTLE_DELAY_US` value must be set carefully so that the feedforward array is generated accurately.
 * `NEGATIVE_OUTPUT_SLOPE` should be set to true if a larger output voltage should produce a smaller input voltage and vice versa.
 * `SAVE_DATA` will give the option to save PID constants, loop frequency, setpoint and output limits, setpoints, and feedforward data.
   * If `LOAD_ON_STARTUP`, then these constants will be loaded on startup, overriding the default values.
@@ -59,7 +59,9 @@ The `settings.h` file can be changed to modify the feedback controller's behavio
 * if `RECORD_FEEDBACK_ALL_ITERATIONS` is true, then the feedback voltage will always be measured, even if it isn't used (such as immediately after a setpoint is changed). This can be helpful for debugging but should be turned off for performance.
 * if `TIME_FEEDBACK_LOOP`, the length of time to perform the pid calculation will be timed.
 * if `RECORD_INPUT`, input values will be logged to RAM. Helpful for debugging.
-
+* `CALIBRATION_AVERAGES` sets the number of measurements to take of each point when generating the feedforward lookup array
+  * `CALIBRATION_PRE_SETTLE_DELAY_US` sets how long to wait (in us) for the system to settle before measuring points for the feedforward lookup array
+  * `CALIBRATION_SETTLE_DELAY_US` sets how how long to wait (in us) for the system to settle between points while measuring points for the feedforward lookup array
 
 ## Serial Commands
 Connect the feedback controller using Putty or the Arduino IDE to tune the feedback parameters, adjust the setpoint, loop frequency, and other parameters.
@@ -76,9 +78,9 @@ Commands:
 * `ra=2` to set the number of read averages to four. The formula is <read averages>=2^x where x is an integer -- this ensures that the number of read averages is always a multiple of two, which speeds up the averaging process. Use ra? to view the number of read averages
 * `pa=1` to enable feedback control, `pa=0` to disable it
 * `po=1` to print sample feedback control values. `po=0` to disable the printed sample feedback control values. A sample string would be `s:6553	 f:6553	 ff:13490	 o:12850	 t:16`, where s refers to the set voltage, f is the feedback voltage, ff is the output voltage the feedforward term recommends, o is the output voltage of the controller, and t is the time the controller took to perform the feedback calculation. All voltages are written as integers, and the time is in microseconds. Write `po=2` to display the values as voltages instead.
-* `cf=1` to create the feedforward function. Write `cd?` to print out the calibration data, and `ce?` to print out the calibration extrema (minimum and maximum set voltage).
-* `ew=1` to write the feedback constants, loop rate, and calibration data to EEPROM so they are persistent after startup. `ew=0` to read all data from EEPROM. Useful when tuning to restore the feedback controller to a working state.
-* `cl=1` to clear the integral term -- helpful if the integral term has spooled up.
+* `cf` to create the feedforward function. This will also set the setpoint limits to slightly inside the feedback controller range. Write `cd?` to print out the calibration data, and `ce?` to print out the calibration extrema (minimum and maximum set voltage).
+* `ew=w` to write the feedback constants, loop rate, and calibration data to EEPROM so they are persistent after startup. `ew=r` to read all data from EEPROM. Useful when tuning to restore the feedback controller to a working state.
+* `cl` to clear the integral term and reset the controller state -- helpful if the integral term has spooled up.
 
 Typical usage:
 Via the USB serial connection, enter the following comnmands:
