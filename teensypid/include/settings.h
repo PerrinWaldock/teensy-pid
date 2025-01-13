@@ -70,7 +70,7 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 #define TIME_FEEDBACK_LOOP true // TODO implement
 
 //logs input values
-#define RECORD_INPUT false
+#define RECORD_INPUT true
 
 
 //////////////////////// Don't change these values unless the hardware changes

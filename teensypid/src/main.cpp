@@ -129,7 +129,7 @@ inline uint16_t getFeedback()
 {
 	uint16_t retval = readADCMultiple(readAveragesPower);
 	#if RECORD_INPUT
-		if ((datalog.state == LOG_SINGLE && datalog.input.available()) || datalog.state == LOG_CONTINUOUS)
+		if ((dataLog.state == LOG_SINGLE && dataLog.input.available()) || dataLog.state == LOG_CONTINUOUS)
 		{
 			dataLog.input.unshift(retval);
 		}
@@ -140,7 +140,7 @@ inline uint16_t getFeedback()
 inline void setOutput(uint16_t out)
 {
 	#if RECORD_INPUT
-		if ((datalog.state == LOG_SINGLE && datalog.output.available()) || datalog.state == LOG_CONTINUOUS)
+		if ((dataLog.state == LOG_SINGLE && dataLog.output.available()) || dataLog.state == LOG_CONTINUOUS)
 		{
 			dataLog.output.unshift(out);
 		}
