@@ -21,30 +21,25 @@ typedef enum {
 
 //////////////////////////////// Values the user can change
 
-///////////// Defaults
-
-//sets the PID loop frequency (too low and the code won't work properly)
-const uint32_t DEFAULT_SAMPLE_PERIOD_US = 20;
+//default PID constants
 const float DEFAULT_KP = .005;
 const float DEFAULT_KI = 1000;
-const float DEFAULT_KD = 0; // TODO change
+const float DEFAULT_KD = 0;
 
-//sets communication parameters
-const uint32_t SERIAL_BAUD = 1000000; //comment this out to disable serial communication
-const uint16_t SERIAL_CHECK_PERIOD_MS = 10;
-const uint16_t DEFAULT_PRINT_PERIOD_MS = 500;      //how quickly it prints
-
+//loop timing
+const uint32_t DEFAULT_LOOP_RATE = 10;
 #define PRECISE_LOOP_TIMING false
+#define OUTPUT_SETTLE_DELAY_US 0
+
+const uint32_t SERIAL_BAUD = 1000000; //comment this out to disable serial communication
+
+//periods
+const uint16_t SERIAL_CHECK_PERIOD_MS = 10; //check and handle serial input
+const uint16_t DEFAULT_PRINT_PERIOD_MS = 500; //print pid state
 
 ///////////// Settings
 
-#define SERIAL_BAUD 1000000
-
 const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
-
-#if INPUT_MODE == DIGITAL_INPUT
-    const int NUM_SETPOINTS = 4; // number of selectable input states
-#endif
 
 #define FEED_FORWARD true
 
@@ -54,21 +49,20 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 
 #define NEGATIVE_OUTPUT_SLOPE false // set to true if a larger output value causes a smaller feedback value
 
-#define RECORD_FEEDBACK_ALL_ITERATIONS false
 #define SAVE_DATA true  //saves calibration data and pid constants
 #define LOAD_ON_STARTUP true
 
 #define DEFAULT_SETPOINT .5
-#define DEFAULT_READ_AVERAGES_POWER 1 //TODO separate feedback and setpoint read averages
+#define DEFAULT_READ_AVERAGES_POWER 1
 #if INPUT_MODE == ANALOG_INPUT
-	#define ANALOG_READ_AVERAGES 1 //
-	#define ANALOG_REFERENCE_RESOLUTION 12
+	#define ANALOG_READ_AVERAGES 1 //sets how many reads are used when measuring the setpoint
+	#define ANALOG_REFERENCE_RESOLUTION 8
 #endif
-#define OUTPUT_SETTLE_DELAY_US 8
 
+
+#define RECORD_FEEDBACK_ALL_ITERATIONS false
 // if true, microcontroller times how long it takes to perform a feedback loop
-#define TIME_FEEDBACK_LOOP true // TODO implement
-
+#define TIME_FEEDBACK_LOOP true 
 //logs input values
 #define RECORD_INPUT true
 
@@ -85,13 +79,19 @@ const int32_t MAX_INPUT = (1 << ADC_BITS) - 1; //maximum output value for the DA
 const int32_t HALF_MAX_INPUT = 1 << (ADC_BITS - 1);
 const int32_t HALF_MAX_OUTPUT = 1 << (DAC_BITS - 1);
 
-const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_SAMPLE_PERIOD_US;
+const uint32_t DEFAULT_SAMPLE_RATE_HZ = 1000000/DEFAULT_LOOP_RATE;
 
 const float DEFAULT_MIN_SETPOINT_VOLTS = 0.05;
 const float DEFAULT_MAX_SETPOINT_VOLTS = ADC_REFERENCE_VOLTAGE - DEFAULT_MIN_SETPOINT_VOLTS;
 
 const float DEFAULT_MIN_OUTPUT_VOLTS = 0;
 const float DEFAULT_MAX_OUTPUT_VOLTS = DAC_REFERENCE_VOLTAGE;
+
+#if INPUT_MODE == DIGITAL_INPUT
+    const int NUM_SETPOINTS = 4; // number of selectable input states
+#else
+	const int NUM_SETPOINTS = 1;
+#endif
 
 #if FEED_FORWARD
     const uint32_t FEED_FORWARD_ARRAY_BITS = DAC_BITS; //want to have a value for each and every setpoint

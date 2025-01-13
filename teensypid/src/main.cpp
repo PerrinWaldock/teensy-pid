@@ -64,7 +64,7 @@ void setup()
 	PidParams params = {DEFAULT_KI, 
 						DEFAULT_KP, 
 						DEFAULT_KD, 
-						DEFAULT_SAMPLE_PERIOD_US, 
+						DEFAULT_LOOP_RATE, 
 						setpointLimits, 
 						outputLimits};
 	pidController = new FPid(params, getSetPoint, getFeedback, writeDAC);
@@ -100,6 +100,9 @@ void loop()
 	static elapsedMillis timeSinceLastPrint;
 
 	pidController->iterate();
+	#if OUTPUT_SETTLE_DELAY_US > 0
+		elapsedMicros outputTime;
+	#endif
 
 	#ifdef SERIAL_BAUD
 		if (timeSinceLastSerialComm >= SERIAL_CHECK_PERIOD_MS)
@@ -117,6 +120,10 @@ void loop()
 			timeSinceLastPrint = 0;
 			printStats(*pidController);
 		}
+	#endif
+
+	#if OUTPUT_SETTLE_DELAY_US > 0
+		while (outputTime < OUTPUT_SETTLE_DELAY_US);
 	#endif
 }
 

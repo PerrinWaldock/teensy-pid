@@ -35,17 +35,31 @@ The KiCAD design files and schematics are in the schematics folder of this repos
 
 
 ## Software Important Preprocessor Directives
-You can access the following directives in the arduinopid.h file:
-* `OUTPUT_SETTLE_DELAY_US` should be set to the response time of the voltage variable attenuator. It is a delay that kicks in immediately after the set point changes from off to on.
-  * When the output changes state from off (below the minimum set point) to on (between the minimum and maximum setpoint), the feedback calculation is skipped for the first output, and only the feedforward value is used. This allows the feedback controller to rapidly approach the desired value. However, it takes a finite amount of time for the system to reach the desired value. This delay stops the next feedback measurement from being taken before the system settles to its new state.
+`pins.h` specifies the IO pins:
 * `PIN_REFERENCE0` and `PIN_REFERENCE1` are used to select which preprogrammed set voltage the feedback controller will try to attain.
 * `PIN_REFERENCE` can be used as a traditional analog setpoint (NOTE: The PCB is not currently set up to support this)
+
+The `settings.h` file can be changed to modify the feedback controller's behaviour:
+* `DEFAULT_KP`, `DEFAULT_KI`, and `DEFAULT_KD` are the default values for the PID constants. They may be overwritten on startup if `LOAD_ON_STARTUP` is enabled.
+* `DEFAULT_LOOP_RATE` sets the default loop rate for the feedback controller. It may be overwritten on startup. If `PRECISE_LOOP_TIMING` is true, the feedback controller will run the feedback control loop at the loop rate; otherwise, the loop rate is ignored and the control loop will run as fast as possible. Disabling the precise timing increases the maximum frequency that can be compensated for but means that the units of the PID constants are incorrect.
+* `OUTPUT_SETTLE_DELAY_US` should be set to the response time of the output stage (e.g. if controlling an AOM, the response time of the voltage variable attenuator). It is a delay that kicks in immediately after the set point changes from off to on.
+  * When the output changes state from off (below the minimum set point) to on (between the minimum and maximum setpoint), the feedback calculation is skipped for the first output, and only the feedforward value is used. This allows the feedback controller to rapidly approach the desired value. However, it takes a finite amount of time for the system to reach the desired value. This delay stops the next feedback measurement from being taken before the system settles to its new state.
+* `SERIAL_BAUD` sets the baud rate to communicate with the computer. Comment it out to disable USB communication
+  * `SERIAL_CHECK_PERIOD_MS` sets the period to communicate with the host computer. `DEFAULT_PRINT_PERIOD_MS` sets the print period of the PID state.
 * `INPUT_MODE` sets the type of input that the feedback controller uses to select its state. `DIGITAL_INPUT` selects preprogrammed set voltage number `PIN_REFERENCE1*2 + PIN_REFERENCE0`, `ANALOG_INPUT` uses the voltage on `PIN_REFERENCE`, and `SOFTWARE_INPUT` only accepts software changes to the set voltage. Note that the `ANALOG_INPUT` mode is not currently well-tested.
-  * It may be advantageous to reduce `ANALOGREFERENCERESOLUTION` to 8 or lower to speed up the loop frequency.
+  * It may be advantageous to reduce `ANALOG_REFERENCE_RESOLUTION` to 8 or lower to speed up the loop frequency.
+  * `NUM_SETPOINTS` is the number of setpoints that can be selected in digital mode. Do not change this without changing the PCB and number of setpoint pins.
 * `FEEDFORWARD` enables feedforward control. One can characterize the transfer function of the system via a serial command, then perform corrections to the feedforward function using PID. It generally produces faster rise times than standard PID feedback control.
-* `NEGATIVE_OUTPUT` should be set to true if a larger output voltage should produce a smaller input voltage and vice versa.
-* `LIMITED_SETPOINT` set to true means that PID control is only active within a certain setpoint range. Set to true to avoid integral wind-up when the output is set to zero or maximum. These
-* `SAVE_DATA` will give the option to save PID constants, loop frequency, and feedforward data and load them on startup.
+* `NEGATIVE_OUTPUT_SLOPE` should be set to true if a larger output voltage should produce a smaller input voltage and vice versa.
+* `SAVE_DATA` will give the option to save PID constants, loop frequency, setpoint and output limits, setpoints, and feedforward data.
+  * If `LOAD_ON_STARTUP`, then these constants will be loaded on startup, overriding the default values.
+* `DEFAULT_SETPOINT` is the default setpoint voltage. This will be overridden if `LOAD_ON_STARTUP` is set to true.
+* `DEFAULT_READ_AVERAGES_POWER` sets the default number of averages that will be taken before using a feedback measurement. The number of averages is two to the power of the value. This will be overridden if `LOAD_ON_STARTUP` is set to true.
+  * If in analog mode, `ANALOG_READ_AVERAGES` is the number of averages for the setpoint value reading, and `ANALOG_REFERENCE_RESOLUTION` sets the number of bits for the measurement.
+* if `RECORD_FEEDBACK_ALL_ITERATIONS` is true, then the feedback voltage will always be measured, even if it isn't used (such as immediately after a setpoint is changed). This can be helpful for debugging but should be turned off for performance.
+* if `TIME_FEEDBACK_LOOP`, the length of time to perform the pid calculation will be timed.
+* if `RECORD_INPUT`, input values will be logged to RAM. Helpful for debugging.
+
 
 ## Serial Commands
 Connect the feedback controller using Putty or the Arduino IDE to tune the feedback parameters, adjust the setpoint, loop frequency, and other parameters.
