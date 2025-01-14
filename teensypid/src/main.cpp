@@ -32,7 +32,7 @@ uint16_t getFeedback();
 void setOutput(uint16_t);
 void printStats(FPid& pidController);
 
-DataLog dataLog = GetNewDataLog();
+DataLog* dlog = getDataLog();
 uint8_t readAveragesPower = DEFAULT_READ_AVERAGES_POWER;
 PrintState printState = {
 	DEFAULT_PRINT_PERIOD_MS,
@@ -67,11 +67,11 @@ void setup()
 						DEFAULT_LOOP_RATE, 
 						setpointLimits, 
 						outputLimits};
-	pidController = new FPid(params, getSetPoint, getFeedback, writeDAC);
+	pidController = new FPid(params, getSetPoint, getFeedback, setOutput);
 
 	eepromManager = new EepromManager(*pidController, setpointManager->getSetPoints(), readAveragesPower);
 
-	CommandParserObjects commandParserObjects = {pidController, eepromManager, setpointManager, &readAveragesPower, &printState, &dataLog, &Serial};
+	CommandParserObjects commandParserObjects = {pidController, eepromManager, setpointManager, &readAveragesPower, &printState, dlog, &Serial};
 	commandParser = new CommandParser(commandParserObjects);
 
 	#ifdef SERIAL_BAUD
@@ -136,9 +136,9 @@ inline uint16_t getFeedback()
 {
 	uint16_t retval = readADCMultiple(readAveragesPower);
 	#if RECORD_INPUT
-		if ((dataLog.state == LOG_SINGLE && dataLog.input.available()) || dataLog.state == LOG_CONTINUOUS)
+		if ((dlog->state == LOG_SINGLE && dlog->input.count() < INPUT_LOG_SIZE) || dlog->state == LOG_CONTINUOUS)
 		{
-			dataLog.input.unshift(retval);
+			dlog->input.push_front(retval);
 		}
 	#endif
 	return retval;
@@ -147,9 +147,9 @@ inline uint16_t getFeedback()
 inline void setOutput(uint16_t out)
 {
 	#if RECORD_INPUT
-		if ((dataLog.state == LOG_SINGLE && dataLog.output.available()) || dataLog.state == LOG_CONTINUOUS)
+		if ((dlog->state == LOG_SINGLE && dlog->output.count() < INPUT_LOG_SIZE) || dlog->state == LOG_CONTINUOUS)
 		{
-			dataLog.output.unshift(out);
+			dlog->output.push_front(out);
 		}
 	#endif
 	writeDAC(out);

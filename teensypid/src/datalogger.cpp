@@ -1,6 +1,8 @@
 #include "datalogger.h"
 
-DataLog GetNewDataLog()
+DataLog dataLog = DataLog{LOG_OFF, Deque<uint16_t>(INPUT_LOG_SIZE), Deque<uint16_t>(INPUT_LOG_SIZE)};
+
+DataLog* getDataLog()
 {
-	return DataLog{LOG_OFF, CircularBuffer<uint16_t, INPUT_LOG_SIZE>(), CircularBuffer<uint16_t, INPUT_LOG_SIZE>()};
+	return &dataLog;
 }

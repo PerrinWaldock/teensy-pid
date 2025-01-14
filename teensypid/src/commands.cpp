@@ -36,7 +36,7 @@
 #define SET_OUTPUT_TOKEN "ov"
 #define GET_FEEDBACK_TOKEN "fv"
 
-#define LOG_TOKEN "lo"
+#define LOG_TOKEN "lg"
 #define LOG_OFF_TOKEN "o"
 #define LOG_SINGLE_TOKEN "s"
 #define LOG_CONTINUOUS_TOKEN "c"
@@ -88,6 +88,7 @@ void eepromReadWrite(CommandParserObjects*, char*);
 void resetPidState(CommandParserObjects*, char*);
 
 void logSetter(CommandParserObjects*, char*);
+void getLogState(CommandParserObjects*, char*);
 void logGetter(CommandParserObjects*, char*);
 
 void checkConfigError(CommandParserObjects*, char*);
@@ -644,6 +645,28 @@ void checkConfigError(CommandParserObjects* obj, char *s)
 	}
 }
 
+void getLogState(CommandParserObjects* obj, char* s)
+{
+	if (handlerHasNullPointer(obj, s))
+	{
+		return;
+	}
+	DataLog& log = *(obj->log);
+
+	if (log.state == LOG_OFF)
+	{
+		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_OFF_TOKEN EOL);
+	}
+	else if(log.state == LOG_SINGLE)
+	{
+		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_SINGLE_TOKEN EOL);
+	}
+	else if (log.state == LOG_CONTINUOUS)
+	{
+		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_CONTINUOUS_TOKEN EOL);
+	}
+}
+
 void logSetter(CommandParserObjects* obj, char* s)
 {
 	if (handlerHasNullPointer(obj, s))
@@ -655,23 +678,22 @@ void logSetter(CommandParserObjects* obj, char* s)
 	if (strcmp(s, LOG_OFF_TOKEN) == 0)
 	{
 		log.state = LOG_OFF;
-		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_OFF_TOKEN EOL);
 	}
 	else if(strcmp(s, LOG_SINGLE_TOKEN) == 0)
 	{
 		log.state = LOG_SINGLE;
-		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_SINGLE_TOKEN EOL);
 	}
 	else if (strcmp(s, LOG_CONTINUOUS_TOKEN) == 0)
 	{
 		log.state = LOG_CONTINUOUS;
-		obj->printer->printf(LOG_TOKEN SET_TOKEN LOG_CONTINUOUS_TOKEN EOL);
 	}
 	else
 	{
 		obj->printer->printf("%s not recognized" EOL, s);
 		return;
 	}
+
+	getLogState(obj, s);
 }
 
 void logGetter(CommandParserObjects* obj, char* s)
@@ -681,9 +703,14 @@ void logGetter(CommandParserObjects* obj, char* s)
 		return;
 	}
 	DataLog& log = *(obj->log);
+	getLogState(obj, s);
+	obj->printer->printf("input %i, output %i\n", log.input.count(), log.output.count());
 
-	while (!log.input.isEmpty() && !log.output.isEmpty())
+	while ((log.input.count() > 0) && (log.output.count() > 0))
 	{
-		obj->printer->printf("i: %i\t o: %i" EOL, log.input.shift(), log.output.shift());
+		obj->printer->printf("i: %i\t o: %i" EOL, log.input.pop_front(), log.output.pop_front());
 	}
+
+	log.input.clear();
+	log.output.clear();
 }

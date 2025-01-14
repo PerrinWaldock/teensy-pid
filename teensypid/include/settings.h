@@ -3,6 +3,11 @@
 
 #include <Arduino.h>
 
+#define TEENSY40 40
+#define TEENSY36 36
+#define TEENSY35 35
+#define TEENSY32 32
+
 #if defined(__MK66FX1M0__) //3.6
     #define TEENSY TEENSY36
 #elif defined(__MK64FX512__) //3.5
@@ -31,7 +36,7 @@ const uint32_t DEFAULT_LOOP_RATE = 10;
 #define PRECISE_LOOP_TIMING false
 #define OUTPUT_SETTLE_DELAY_US 0
 
-const uint32_t SERIAL_BAUD = 1000000; //comment this out to disable serial communication
+#define SERIAL_BAUD 1000000 //comment this out to disable serial communication
 
 //periods
 const uint16_t SERIAL_CHECK_PERIOD_MS = 10; //check and handle serial input
