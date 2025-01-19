@@ -67,15 +67,13 @@ class PidController:
                 s.write((command + "\n").encode('utf_8'))
     
     def readLine(self, timeout: float=TIMEOUT) -> str:
-        s = self.getPort(timeout=timeout)
-        line = s.readline()
-        s.close()
+        with self.getPort(timeout=timeout) as s:
+            line = s.readline()
         return line.decode('utf_8')
     
     def readLines(self, timeout: float=TIMEOUT) -> List[str]: #TODO test context manager
-        s = self.getPort(timeout=timeout)
-        lines = s.readlines()
-        s.close()
+        with self.getPort(timeout=timeout) as s:
+            lines = s.readlines()
         return [l.decode('utf_8') for l in lines]
     
     def elicitResponse(self, command: str, timeout: float=TIMEOUT) -> str:

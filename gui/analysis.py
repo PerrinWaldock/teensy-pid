@@ -16,7 +16,7 @@ def allanVariance(xs, T, m):
 def allanVariances(xs, T):
     variances = deque()
     averagingTimes = deque()
-    for m in range(2,len(xs)//2):
+    for m in range(2,len(xs)-2):
         variances.append(allanVariance(xs, T, m))
         averagingTimes.append(m*T)
     return list(averagingTimes), list(variances)
@@ -46,27 +46,86 @@ def plotWaveforms(waveforms, T, title="Voltage vs Time", show=False):
         plt.show()
 
 def plotSpectrum(xs, T, show=False):
-    fs, amps = spectrum(xs, T)
+    plotSpectra({"": xs}, T, show=show)
+
+def plotSpectra(waveforms, T, show=False):
     plt.figure()
-    plt.plot(fs, amps)
+    for key, xs in waveforms.items():
+        fs, amps = spectrum(xs, T)
+        plt.plot(fs, amps, label=key)
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("Amplitudes (V)")
     plt.yscale("log")
     plt.title("Feedback Voltage Spectrum")
+    plt.legend()
     if show:
         plt.show()
 
 def plotAllan(xs, T, show=False):
-    ats, avs = allanVariances(xs, T)
+    plotAllans({"": xs}, T, show=show)
+
+def plotAllans(waveforms, T, show=False):
     plt.figure()
-    plt.plot(ats, avs)
+    for key, xs in waveforms.items():
+        ats, avs = allanVariances(xs, T)
+        plt.plot(ats, avs, label=key)
     plt.yscale("log")
     plt.xscale("log")
-    plt.xlabel("Averageing Time (s)")
+    plt.xlabel("Averaging Time (s)")
     plt.ylabel(r"$\sigma^2_{OADEV}$")
     plt.title("Allan Variance")
+    plt.legend()
     if show:
         plt.show()
+
+def findCrossings(xs):
+    mid = (min(xs) + max(xs))/2
+    return np.where(np.diff(np.sign(xs - mid)))[0]
+
+def findFirstNtrue(xs, n):
+    last = 0
+    for ind, val in enumerate(xs):
+        if val:
+            if (ind - last) > n:
+                return last
+        else:
+            last = ind
+
+#TODO need better criteria
+def findSettledInd(xs, desired, consecutivePointsInStdevIsSettled=3):
+    crossings = findCrossings(xs)
+    if len(crossings) > 1:
+        xs = xs[:crossings[1]]
+    stepInd = crossings[0]
+    settleData = xs[stepInd+1:]
+    settledStdev = np.std(settleData[len(settleData)//2:])
+    settledInd = findFirstNtrue((settleData < desired + settledStdev)*(settleData > desired - settledStdev), consecutivePointsInStdevIsSettled) + stepInd
+    return settledInd
+
+def expectedResponse(stepInd, desired, n):
+    inds = np.arange(n)
+    return (inds > stepInd)*desired
+
+def plotStepResponse(xs, T, desired, show=False):
+    xs = np.array(xs)
+    crossings = findCrossings(xs)
+    if len(crossings) > 1:
+        xs = xs[:crossings[1]]
+    stepInd = crossings[0]
+    settledInd = findSettledInd(xs, desired)
+    bufferInds = int(.1*(settledInd - stepInd))
+    lastInd = settledInd + bufferInds
+    startInd = stepInd - bufferInds
+    expected = expectedResponse(stepInd, desired, len(xs))
+    
+    plotWaveforms({"desired": expected[startInd:lastInd], "actual": xs[startInd:lastInd]}, T, title="Step Response", show=show)
+    
+    #TODO find step time
+    #find settle time
+    #compute a score (stdev from desired)
+    
+    #figure out what's causing the overshoot?
+    pass
     
 
 if __name__ == "__main__":

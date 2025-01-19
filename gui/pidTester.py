@@ -8,7 +8,7 @@ import analysis
 
 
 class PidTester:
-    def __init__(self, pidController):
+    def __init__(self, pidController: PidController):
         self.pidController = pidController
         
     def startLog(self, single=True):
@@ -29,26 +29,32 @@ class PidTester:
         time.sleep(.05)
         return self.getLog()
     
-    def getSteadyState(self, sv=3, pidActive=True):
+    def getSteadyState(self, sv=3, pidActive=True): #TODO also get open-loop value
+        startActive = self.pidController.pidActive
         self.pidController.sv = sv
         time.sleep(.01)
         self.pidController.pidActive = pidActive
         time.sleep(.01)
         self.pidController.startLog(single=True)
-        time.sleep(.1)
-        return self.getLog()
-        
+        time.sleep(.2)
+        vals = self.getLog()
+        self.pidController.pidActive = startActive
+        return vals
 
 def plotStepResponse(pt, sv=3, show=False):
-    times, feedbacks = pt.getStepResponse()
+    times, feedbacks = pt.getStepResponse(sv2=sv)
     T = np.mean(np.diff(times))
-    analysis.plotWaveform(feedbacks, T, title="Step Response", show=show)
+    analysis.plotStepResponse(feedbacks, T, sv, show=show)
 
 def plotStability(pt, sv=3, show=False):
-    times, feedbacks = pt.getSteadyState(sv=sv)
+    times, feedbacks = pt.getSteadyState(sv=sv, pidActive=True)
+    openTimes, openFeedbacks = pt.getSteadyState(sv=sv, pidActive=False)
+    
     T = np.mean(np.diff(times))
-    analysis.plotAllan(feedbacks, T, show=False)
-    analysis.plotSpectrum(feedbacks, T, show=show)
+    Topen = np.mean(np.diff(openTimes))
+    readings = {"open-loop": openFeedbacks, "closed-loop": feedbacks}
+    analysis.plotAllans(readings, T, show=False)
+    analysis.plotSpectra(readings, Topen, show=show)
 
 if __name__ == "__main__":
     # parser = argparse.ArgumentParser()
