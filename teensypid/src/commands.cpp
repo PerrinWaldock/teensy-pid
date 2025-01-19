@@ -520,7 +520,7 @@ void printFeedForward(CommandParserObjects* obj, char* s)
 	uint16_t* values = obj->pidController->getFeedForwardReadings(length);
 	for (int32_t i = 0; i < length; i++)
 	{
-		obj->printer->printf(FEEDFORWARD_TOKEN " %i: %i\n", i, values[i]);
+		obj->printer->printf(FEEDFORWARD_TOKEN " %i: %i\n", i*length, values[i]);
 	}
 }
 
@@ -712,7 +712,7 @@ void logGetter(CommandParserObjects* obj, char* s)
 	uint32_t counter = 0;
 	while ((log.input.count() > 0) && (log.output.count() > 0))
 	{
-		obj->printer->printf(LOG_TOKEN " %i\tf: %i\t o: %i" EOL, counter++, log.input.pop_front(), log.output.pop_front());
+		obj->printer->printf(LOG_TOKEN " %i\tf: %i\t o: %i" EOL, counter++, log.input.pop_back(), log.output.pop_back());
 	}
 
 	log.input.clear();

@@ -70,7 +70,8 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 	const uint32_t CALIBRATION_PRE_SETTLE_DELAY_US = 10000;
 #endif
 
-#define RECORD_FEEDBACK_ALL_ITERATIONS false
+// records feedback even when setpoint out of range
+#define RECORD_FEEDBACK_ALL_ITERATIONS true
 // if true, microcontroller times how long it takes to perform a feedback loop
 #define TIME_FEEDBACK_LOOP true 
 //logs input values

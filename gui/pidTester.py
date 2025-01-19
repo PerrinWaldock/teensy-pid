@@ -11,22 +11,22 @@ class PidTester:
     def __init__(self, pidController):
         self.pidController = pidController
         
-    def startLog(self):
-        self.pidController.startLog(single=True)
+    def startLog(self, single=True):
+        self.pidController.startLog(single=single)
         
     def getLog(self):
         (feedbacks, outputs) = self.pidController.getLog()
-        times = np.linspace(0,len(feedbacks))*(1/self.pidController.loopFrequency)
+        times = np.arange(0, len(feedbacks))/self.pidController.loopFrequency
         return (times, feedbacks)
     
     def getStepResponse(self, sv1=0, sv2=3):
         self.pidController.pidActive = True
         self.pidController.sv = sv1
-        print("starting")
-        self.startLog()
-        time.sleep(.01)
+        time.sleep(.1)
+        self.startLog(single=True)
+        time.sleep(.05)
         self.pidController.sv = sv2
-        time.sleep(.01)
+        time.sleep(.05)
         return self.getLog()
     
     def getSteadyState(self, sv=3, pidActive=True):
@@ -39,21 +39,16 @@ class PidTester:
         return self.getLog()
         
 
-def plotStepResponse(pt):
+def plotStepResponse(pt, sv=3, show=False):
     times, feedbacks = pt.getStepResponse()
-    plt.plot(times, feedbacks)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Voltage (V)")
-    plt.show()
+    T = np.mean(np.diff(times))
+    analysis.plotWaveform(feedbacks, T, title="Step Response", show=show)
 
-
-
-def plotStability(pt, sv=3):
+def plotStability(pt, sv=3, show=False):
     times, feedbacks = pt.getSteadyState(sv=sv)
     T = np.mean(np.diff(times))
-    analysis.plotAllan(feedbacks, T)
-    analysis.plotSpectrum(feedbacks, T)
-    plt.show()
+    analysis.plotAllan(feedbacks, T, show=False)
+    analysis.plotSpectrum(feedbacks, T, show=show)
 
 if __name__ == "__main__":
     # parser = argparse.ArgumentParser()
@@ -62,5 +57,5 @@ if __name__ == "__main__":
     pc = PidController()
     pt = PidTester(pc)
     
-    plotStepResponse(pt)
-    plt.show()
+    plotStability(pt, show=False)
+    plotStepResponse(pt, show=True)

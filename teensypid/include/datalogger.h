@@ -11,7 +11,7 @@ typedef enum{
 } LogState;
 
 #if TEENSY == TEENSY40
-	const int32_t TOTAL_LOG_SPACE = 100000;
+	const int32_t TOTAL_LOG_SPACE = 200000;
 #elif TEENSY == TEENSY32
 	const int32_t TOTAL_LOG_SPACE = 1000;
 #endif
