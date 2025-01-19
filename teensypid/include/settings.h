@@ -34,7 +34,7 @@ const float DEFAULT_KD = 0;
 //loop timing
 const uint32_t DEFAULT_LOOP_RATE = 10;
 #define PRECISE_LOOP_TIMING false
-#define OUTPUT_SETTLE_DELAY_US 0
+#define OUTPUT_SETTLE true
 
 #define SERIAL_BAUD 1000000 //comment this out to disable serial communication
 
@@ -108,5 +108,7 @@ const float DEFAULT_MAX_OUTPUT_VOLTS = DAC_REFERENCE_VOLTAGE;
     const uint32_t FEED_FORWARD_ARRAY_BITS = DAC_BITS; //want to have a value for each and every setpoint
     const uint32_t FF_CALIBRATION_ARRAY_BITS = 8;
 #endif
+
+const uint16_t SLEW_RATE_POWER_PER_US = 14;
 
 #endif

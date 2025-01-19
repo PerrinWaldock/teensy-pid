@@ -121,10 +121,6 @@ void loop()
 			printStats(*pidController);
 		}
 	#endif
-
-	#if OUTPUT_SETTLE_DELAY_US > 0
-		while (outputTime < OUTPUT_SETTLE_DELAY_US);
-	#endif
 }
 
 inline uint16_t getSetPoint()
@@ -146,6 +142,7 @@ inline uint16_t getFeedback()
 
 inline void setOutput(uint16_t out)
 {
+	static uint16_t lastOut = 0;
 	#if RECORD_INPUT
 		if ((dlog->state == LOG_SINGLE && dlog->output.count() < INPUT_LOG_SIZE) || dlog->state == LOG_CONTINUOUS)
 		{
@@ -153,6 +150,16 @@ inline void setOutput(uint16_t out)
 		}
 	#endif
 	writeDAC(out);
+
+	int32_t change = out - lastOut;
+	if (change < 0)
+	{
+		change *= -1;
+	}
+
+	#if OUTPUT_SETTLE
+		delayMicroseconds((change >> SLEW_RATE_POWER_PER_US));
+	#endif
 }
 
 void printStats(FPid& pidController)
