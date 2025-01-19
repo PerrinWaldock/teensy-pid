@@ -35,6 +35,7 @@
 #define RESET_TOKEN "cl"
 #define SET_OUTPUT_TOKEN "ov"
 #define GET_FEEDBACK_TOKEN "fv"
+#define NAME_TOKEN "nm"
 
 #define LOG_TOKEN "lg"
 #define LOG_OFF_TOKEN "o"
@@ -45,6 +46,7 @@
 #define NUMBER_OF_SETPOINTS INPUT_STATES
 
 #define EOL "\n"
+#define NAME "fpidController"
 
 #define createHandler(fn) [](void* o, char* s) {fn((CommandParserObjects*) o, s);}
 
@@ -90,6 +92,7 @@ void resetPidState(CommandParserObjects*, char*);
 void logSetter(CommandParserObjects*, char*);
 void getLogState(CommandParserObjects*, char*);
 void logGetter(CommandParserObjects*, char*);
+void getName(CommandParserObjects*, char*);
 
 void checkConfigError(CommandParserObjects*, char*);
 
@@ -114,7 +117,7 @@ CommandParser::CommandParser(CommandParserObjects objects)
 {
 	this->objects = objects;
 
-	//Serial.printf("constructor addresses: %i %i %i %i\n", &objects, &(objects.pidController), (this->objects), &(this->objects->pidController));
+	addCommand(NAME_TOKEN GET_TOKEN, createHandler(getName), (void*) &(this->objects), "to get name");
 
 	addCommand(KP_TOKEN SET_TOKEN, createHandler(setKp), (void*) &(this->objects), "sets kp (float)");
 	addCommand(KP_TOKEN GET_TOKEN, createHandler(getKp), (void*) &(this->objects), "get kp (float)");
@@ -145,7 +148,7 @@ CommandParser::CommandParser(CommandParserObjects objects)
 	addCommand(READ_AVERAGES_TOKEN SET_TOKEN, createHandler(setReadAverages), (void*) &(this->objects), "sets number of read averages (must be a power of 2)");
 	addCommand(READ_AVERAGES_TOKEN GET_TOKEN, createHandler(getReadAverages), (void*) &(this->objects), "gets number of read averages");
 
-	addCommand(FEEDFORWARD_TOKEN GET_TOKEN, createHandler(printFeedForward), (void*) &(this->objects), "prints the feedforward lookup table");	
+	addCommand(FEEDFORWARD_TOKEN GET_TOKEN, createHandler(printFeedForward), (void*) &(this->objects), "prints the feedforward lookup table readings");	
 	addCommand(CALIBRATE_TOKEN, createHandler(calibrateFeedForward), (void*) &(this->objects), "calibrates feedforward lookup table");
 	addCommand(RESET_TOKEN, createHandler(resetPidState), (void*) &(this->objects), "resets PID state");
 	addCommand(EEPROM_TOKEN SET_TOKEN, createHandler(eepromReadWrite), (void*) &(this->objects), EEPROM_READ_TOKEN " to read parameters from EEPROM; " EEPROM_WRITE_TOKEN " to write parameters to EEPROM");
@@ -517,7 +520,7 @@ void printFeedForward(CommandParserObjects* obj, char* s)
 	uint16_t* values = obj->pidController->getFeedForwardReadings(length);
 	for (int32_t i = 0; i < length; i++)
 	{
-		obj->printer->printf("%i: %i\n", i, values[i]);
+		obj->printer->printf(FEEDFORWARD_TOKEN " %i: %i\n", i, values[i]);
 	}
 }
 
@@ -706,11 +709,21 @@ void logGetter(CommandParserObjects* obj, char* s)
 	getLogState(obj, s);
 	obj->printer->printf("input %i, output %i\n", log.input.count(), log.output.count());
 
+	uint32_t counter = 0;
 	while ((log.input.count() > 0) && (log.output.count() > 0))
 	{
-		obj->printer->printf("i: %i\t o: %i" EOL, log.input.pop_front(), log.output.pop_front());
+		obj->printer->printf(LOG_TOKEN " %i\tf: %i\t o: %i" EOL, counter++, log.input.pop_front(), log.output.pop_front());
 	}
 
 	log.input.clear();
 	log.output.clear();
+}
+
+void getName(CommandParserObjects* obj, char* s)
+{
+	if (handlerHasNullPointer(obj, s))
+	{
+		return;
+	}
+	obj->printer->printf(NAME_TOKEN SET_TOKEN NAME EOL);
 }
