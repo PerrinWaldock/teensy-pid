@@ -149,17 +149,21 @@ inline void setOutput(uint16_t out)
 			dlog->output.push_front(out);
 		}
 	#endif
-	writeDAC(out);
 
-	int32_t change = out - lastOut;
-	if (change < 0)
+	if (out != 0 || out != lastOut)
 	{
-		change *= -1;
-	}
+		writeDAC(out);
 
-	#if OUTPUT_SETTLE
-		delayMicroseconds((change >> SLEW_RATE_POWER_PER_US));
-	#endif
+		int32_t change = out - lastOut;
+		if (change < 0)
+		{
+			change *= -1;
+		}
+
+		#if OUTPUT_SETTLE
+			delayMicroseconds((change >> SLEW_RATE_POWER_PER_US));
+		#endif
+	}
 }
 
 void printStats(FPid& pidController)

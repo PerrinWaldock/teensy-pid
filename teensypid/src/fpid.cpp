@@ -32,6 +32,7 @@ void FPid::iterate()
         lastIterationTime = 0;
         #if RECORD_FEEDBACK_ALL_ITERATIONS
             lastFeedBack = getFeedback();
+            setOutput(lastOutput);
         #endif
         return;
     }
