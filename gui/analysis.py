@@ -21,15 +21,31 @@ def allanVariances(xs, T):
         averagingTimes.append(m*T)
     return list(averagingTimes), list(variances)
 
-def plotWaveform(xs, T):
-    ts = np.arange(len(xs))*T
+def plotTransfer(output, feedback, show=False):
     plt.figure()
-    plt.plot(ts, xs)
+    plt.plot(output, feedback)
+    plt.xlabel("Output (V)")
+    plt.ylabel("Feedback (V)")
+    plt.title("Feedback Voltage vs Output")
+    if show:
+        plt.show() 
+
+def plotWaveform(xs, T, title="Voltage vs Time", show=False):
+    plotWaveforms({"": xs}, T, title=title, show=show)
+
+def plotWaveforms(waveforms, T, title="Voltage vs Time", show=False):
+    plt.figure()
+    for key, values in waveforms.items():
+        ts = np.arange(len(values))*T
+        plt.plot(ts, values, label=key)
     plt.xlabel("Time (s)")
     plt.ylabel("Voltage (V)")
-    plt.title("Feedback Voltage vs Time")
+    plt.title(title)
+    plt.legend()
+    if show:
+        plt.show()
 
-def plotSpectrum(xs, T):
+def plotSpectrum(xs, T, show=False):
     fs, amps = spectrum(xs, T)
     plt.figure()
     plt.plot(fs, amps)
@@ -37,8 +53,10 @@ def plotSpectrum(xs, T):
     plt.ylabel("Amplitudes (V)")
     plt.yscale("log")
     plt.title("Feedback Voltage Spectrum")
+    if show:
+        plt.show()
 
-def plotAllan(xs, T):
+def plotAllan(xs, T, show=False):
     ats, avs = allanVariances(xs, T)
     plt.figure()
     plt.plot(ats, avs)
@@ -47,7 +65,8 @@ def plotAllan(xs, T):
     plt.xlabel("Averageing Time (s)")
     plt.ylabel(r"$\sigma^2_{OADEV}$")
     plt.title("Allan Variance")
-    
+    if show:
+        plt.show()
     
 
 if __name__ == "__main__":

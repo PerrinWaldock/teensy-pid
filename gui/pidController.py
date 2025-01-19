@@ -6,6 +6,8 @@ from collections import deque
 import time
 from typing import List, Tuple
 
+import analysis
+
 """
 look for possible usb devices (dependant on os)
 provide interface to set pid constants https://docs.python.org/3/library/functions.html#
@@ -30,7 +32,7 @@ TODO may be valuable to record time and value as tuple
 """
 
 BAUD_RATE = 1000000
-TIMEOUT = .05
+TIMEOUT = .2#.05
 
 def int2volt(x):
     return x*5.0/(2**16 - 1)
@@ -56,15 +58,13 @@ class PidController:
         return s
         
     def sendCommand(self, command: str) -> None:
-        s = self.getPort()
-        s.write((command + "\n").encode('utf_8'))
-        s.close()
+        with self.getPort() as s:
+            s.write((command + "\n").encode('utf_8'))
             
     def sendCommands(self, commands: List[str]) -> None:
-        s = self.getPort()
-        for command in commands:
-            s.write((command + "\n").encode('utf_8'))
-        s.close()
+        with self.getPort() as s:
+            for command in commands:
+                s.write((command + "\n").encode('utf_8'))
     
     def readLine(self, timeout: float=TIMEOUT) -> str:
         s = self.getPort(timeout=timeout)
@@ -79,31 +79,30 @@ class PidController:
         return [l.decode('utf_8') for l in lines]
     
     def elicitResponse(self, command: str, timeout: float=TIMEOUT) -> str:
-        s = self.getPort(timeout=timeout)
-        s.write((command + "\n").encode('utf_8'))
-        line = s.readline()
-        s.close()
+        with self.getPort(timeout=timeout) as s:
+            s.write((command + "\n").encode('utf_8'))
+            line = s.readline()
         return line.decode('utf_8').strip()
     
     def elicitResponses(self, command: str, timeout: float=TIMEOUT) -> List[str]:
-        s = self.getPort(timeout=timeout)
-        s.write((command + "\n").encode('utf_8'))
-        lines = s.readlines()
-        s.close()
+        with self.getPort(timeout=timeout) as s:
+            s.write((command + "\n").encode('utf_8'))
+            lines = s.readlines()
         return [l.decode('utf_8').strip() for l in lines]
     
     def sendCommandExpectingSameResponse(self, command: str, timeout: float=TIMEOUT) -> None:
         response = self.elicitResponse(command, timeout=timeout)
-        if command != response:
+        if not command in response:
             raise Exception(f'{command} != {response}')
     
     def getFloat(self, token: str) -> float:
         command = f"{token}?"
         response = self.elicitResponse(command)
-        return float(re.search(r'(?<=' + token + r'=)\d*.?\d*', response))
+        m = re.search(r'(?<=' + token + r'=)\d*.?\d*', response)
+        return float(m.group())
             
     def startLog(self, single: bool=False) -> None:
-        self.sendCommand(f"lg={'s' if single else 'c'}") #TODO check for response
+        self.sendCommandExpectingSameResponse(f"lg={'s' if single else 'c'}") #TODO check for response
         
     def getLog(self) -> Tuple[List[float], List[float]]:
         self.sendCommandExpectingSameResponse("lg=o")
@@ -111,13 +110,15 @@ class PidController:
         feedbacks = deque()
         outputs = deque()
         for line in lines:
-            feedbacks.append(int2volt(int(re.search(r'(?<=f\:\s)\d+', line))))
-            outputs.append(int2volt(int(re.search(r'(?<=o\:\s)\d+', line))))
+            m = re.search(r'(?<=lg\s)(\d+)\sf\:\s(\d+)\s+o\:\s(\d+)', line)
+            if m:
+                feedbacks.append(int2volt(int(m.group(2))))
+                outputs.append(int2volt(int(m.group(3))))
         return feedbacks, outputs
     
     def calibrate(self) -> None:
         response = self.elicitResponse("cf", timeout=1)
-        if response != "calibrated":
+        if response != "Calibrated!":
             raise Exception(f"Calibration response: {response}")
         
     def getFeedForwardReadings(self) -> Tuple[List[float]]:
@@ -125,9 +126,9 @@ class PidController:
         feedbacks = deque()
         outputs = deque()
         for line in lines:
-            m = re.search(r'(?<=ff\s)(\d+)\:(\d+)', line)
-            outputs.append(m.group(0))
-            feedbacks.append(m.group(1))
+            m = re.search(r'(?<=ff\s)(\d+)\:\s(\d+)', line)
+            outputs.append(int2volt(float(m.group(1))))
+            feedbacks.append(int2volt(float(m.group(2))))
         return feedbacks, outputs
     
     def save(self) -> None:
@@ -225,7 +226,7 @@ def parseSetpoints(lines: List[str]):
     setpoints = {}
     for line in lines:
         matches = re.search(r'(?<=sv)(\d+)\=(\d*\.?\d*)', line)
-        setpoints[int(matches.group(0))] = float(matches.group(1))
+        setpoints[int(matches.group(1))] = float(matches.group(2))
     return setpoints
 
 def getActiveSetpoint(lines: List[str]):
@@ -284,23 +285,23 @@ def test(pc: PidController):
     pc.load()
     pc.calibrate()
     feedbacks, outputs = pc.getFeedForwardReadings() #TODO plot
-    print(feedbacks)
-    print(outputs)
+    analysis.plotTransfer(outputs, feedbacks)
+
     low, high = pc.getSetpointLimits() #TODO check
-    print(low, high)
+    print("setpoint limits:", low, high)
     pc.forceOutput(3)
-    print(pc.kd, pc.kp, pc.ki)
-    print(pc.loopFrequency)
+    print("pid constants:", pc.kd, pc.kp, pc.ki)
+    print("frequency:", pc.loopFrequency)
     # TODO check setting
     setpoint = 3
-    print(pc.svs, pc.sv == setpoint)
+    print("setpoints:", pc.svs, pc.sv == setpoint)
     pc.pidActive = True
     
     pc.startLog()
-    time.sleep(.1)
+    time.sleep(.5)
     feedbacks, outputs = pc.getLog()
-    print(feedbacks)
-    print(outputs)
+    T = 1/pc.loopFrequency
+    analysis.plotWaveforms({"feedback": feedbacks, "output": outputs}, T, show=True)
     
 
 if __name__ == "__main__":
