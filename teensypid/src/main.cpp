@@ -125,17 +125,30 @@ void loop()
 
 inline uint16_t getSetPoint()
 {
-	return setpointManager->getSetPoint();
+	uint16_t setpoint = setpointManager->getSetPoint();
+	#if RECORD_INPUT && RECORD_SETPOINT
+		if ((dlog->state == LOG_SINGLE && dlog->setpoint.count() < INPUT_LOG_SIZE) || dlog->state == LOG_CONTINUOUS)
+		{
+			dlog->setpoint.push_front(setpoint);
+		}
+		#if RECORD_TIME
+			dlog->setpointTime.push_front((uint16_t)dlog->sinceLogStart);
+		#endif
+	#endif
+	return setpoint;
 }
 
 inline uint16_t getFeedback()
 {
 	uint16_t retval = readADCMultiple(readAveragesPower);
-	#if RECORD_INPUT
-		if ((dlog->state == LOG_SINGLE && dlog->input.count() < INPUT_LOG_SIZE) || dlog->state == LOG_CONTINUOUS)
+	#if RECORD_INPUT && RECORD_FEEDBACK
+		if ((dlog->state == LOG_SINGLE && dlog->feedback.count() < INPUT_LOG_SIZE) || dlog->state == LOG_CONTINUOUS)
 		{
-			dlog->input.push_front(retval);
+			dlog->feedback.push_front(retval);
 		}
+		#if RECORD_TIME
+			dlog->feedbackTime.push_front((uint16_t)dlog->sinceLogStart);
+		#endif
 	#endif
 	return retval;
 }
@@ -143,11 +156,14 @@ inline uint16_t getFeedback()
 inline void setOutput(uint16_t out)
 {
 	static uint16_t lastOut = 0;
-	#if RECORD_INPUT
+	#if RECORD_INPUT && RECORD_OUTPUT
 		if ((dlog->state == LOG_SINGLE && dlog->output.count() < INPUT_LOG_SIZE) || dlog->state == LOG_CONTINUOUS)
 		{
 			dlog->output.push_front(out);
 		}
+		#if RECORD_TIME
+			dlog->outputTime.push_front((uint16_t)dlog->sinceLogStart);
+		#endif
 	#endif
 
 	if (out != 0 || out != lastOut)
@@ -173,5 +189,5 @@ void printStats(FPid& pidController)
 	{
 		state.feedBack = getFeedback();
 	}
-	Serial.printf("t: %i, sp: %i fb: %i pd: %i op: %i ff: %i\n\r", state.iterationTime, state.setPoint, state.feedBack, state.pid, state.output, pidController.getFeedForwardValue());
+	Serial.printf(TIME_TOKEN ": %i, " SETPOINT_TOKEN ": %i " FEEDBACK_TOKEN ": %i p: %i " OUTPUT_TOKEN ": %i ff: %i\n\r", state.iterationTime, state.setPoint, state.feedBack, state.pid, state.output, pidController.getFeedForwardValue());
 }

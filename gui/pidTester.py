@@ -15,8 +15,8 @@ class PidTester:
         self.pidController.startLog(single=single)
         
     def getLog(self):
-        (feedbacks, outputs) = self.pidController.getLog()
-        times = np.arange(0, len(feedbacks))/self.pidController.loopFrequency
+        log = self.pidController.getLog()
+        times, feedbacks = log["feedback"]
         return (times, feedbacks)
     
     def getStepResponse(self, sv1=0, sv2=3):
@@ -29,7 +29,7 @@ class PidTester:
         time.sleep(.05)
         return self.getLog()
     
-    def getSteadyState(self, sv=3, pidActive=True): #TODO also get open-loop value
+    def getSteadyState(self, sv=3, pidActive=True):
         startActive = self.pidController.pidActive
         self.pidController.sv = sv
         time.sleep(.01)

@@ -1,0 +1,32 @@
+TODO
+	test analog setpoint? digital setpoint?
+
+python
+	create functions for measuring step response
+		fit step response to expected
+		do off-on, on-on
+		need some metrics for performance (stdev?)
+	create function for measuring steady-state
+		measure allan deviation, generate plot
+		come up with some metric?
+
+TODO
+	Save log timestamp at 16 bit LSB value, auto-add relevant amount 
+		may need to interpolate values
+	when printing values to terminal. Possibly remove output from log?
+		have a LOG_FEEDBACK, LOG_OUTPUT, LOG_SETPOINT, LOG_TIME #defines, set as needed
+	find a way to disable saving output to terminal -- possible have as a setting not preprocessor directive?
+		can default to off to speed up response time
+	calibrate loop rate from log times?
+	calculate rise time metric (deviation from ideal step response curve?)
+	reduce time to take single rise time measurement
+	make a bunch of functions inline pass by reference to improve speed
+	GUI
+		set pid constants
+		calibrate loop rate
+		calibrate feedforward
+		save constants
+		display feedforward function
+		display stability
+		display rise time
+		find best rise time score? (after calibrating feedforward?)

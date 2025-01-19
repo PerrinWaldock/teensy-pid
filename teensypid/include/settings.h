@@ -76,6 +76,12 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 #define TIME_FEEDBACK_LOOP true 
 //logs input values
 #define RECORD_INPUT true
+#if RECORD_INPUT
+	#define RECORD_FEEDBACK true 
+	#define RECORD_OUTPUT true
+	#define RECORD_SETPOINT true
+	#define RECORD_TIME true
+#endif
 
 
 //////////////////////// Don't change these values unless the hardware changes
@@ -110,5 +116,11 @@ const float DEFAULT_MAX_OUTPUT_VOLTS = DAC_REFERENCE_VOLTAGE;
 #endif
 
 const uint16_t SLEW_RATE_POWER_PER_US = 14;
+
+
+#define FEEDBACK_TOKEN "f"
+#define SETPOINT_TOKEN "s"
+#define OUTPUT_TOKEN "o"
+#define TIME_TOKEN "t"
 
 #endif

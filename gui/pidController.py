@@ -102,17 +102,40 @@ class PidController:
     def startLog(self, single: bool=False) -> None:
         self.sendCommandExpectingSameResponse(f"lg={'s' if single else 'c'}") #TODO check for response
         
-    def getLog(self) -> Tuple[List[float], List[float]]:
+    def getLog(self):
         self.sendCommandExpectingSameResponse("lg=o")
         lines = self.elicitResponses("lg?")
         feedbacks = deque()
+        feedbackTimes = deque()
         outputs = deque()
+        outputTimes = deque()
+        setpoints = deque()
+        setpointTimes = deque()
         for line in lines:
-            m = re.search(r'(?<=lg\s)(\d+)\sf\:\s(\d+)\s+o\:\s(\d+)', line)
-            if m:
-                feedbacks.append(int2volt(int(m.group(2))))
-                outputs.append(int2volt(int(m.group(3))))
-        return feedbacks, outputs
+            feedback = re.search(r'(?<=f\:\s)\d+', line)
+            feedbackTime = re.search(r'(?<=ft\:\s)\d+', line)
+            output = re.search(r'(?<=o\:\s)\d+', line)
+            outputTime = re.search(r'(?<=ot\:\s)\d+', line)
+            setpoint = re.search(r'(?<=s\:\s)\d+', line)
+            setpointTime = re.search(r'(?<=st\:\s)\d+', line)
+            if feedback and feedbackTime:
+                feedbacks.append(int2volt(int(feedback.group())))
+                feedbackTimes.append(int(feedbackTime.group()))
+            if output and outputTime:
+                outputs.append(int2volt(int(output.group())))
+                outputTimes.append(int(outputTime.group()))
+            if setpoint and setpointTime:
+                setpoints.append(int2volt(int(setpoint.group())))
+                setpointTimes.append(int(setpointTime.group()))
+                
+        retdict = {}
+        if len(feedbacks) > 0:
+            retdict["feedback"] = (feedbackTimes, feedbacks)
+        if len(feedbacks) > 0:
+            retdict["setpoint"] = (setpointTimes, setpoints)
+        if len(feedbacks) > 0:
+            retdict["output"] = (outputTimes, outputs)
+        return retdict
     
     def calibrate(self) -> None:
         response = self.elicitResponse("cf", timeout=1)

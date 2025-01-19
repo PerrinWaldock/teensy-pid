@@ -3,6 +3,7 @@
 #include "utils.hpp"
 #include "serialmanager.h"
 #include "datalogger.h"
+#include "settings.h"
 
 #include <string.h>
 
@@ -685,10 +686,12 @@ void logSetter(CommandParserObjects* obj, char* s)
 	else if(strcmp(s, LOG_SINGLE_TOKEN) == 0)
 	{
 		log.state = LOG_SINGLE;
+		log.sinceLogStart = 0;
 	}
 	else if (strcmp(s, LOG_CONTINUOUS_TOKEN) == 0)
 	{
 		log.state = LOG_CONTINUOUS;
+		log.sinceLogStart = 0;
 	}
 	else
 	{
@@ -707,16 +710,78 @@ void logGetter(CommandParserObjects* obj, char* s)
 	}
 	DataLog& log = *(obj->log);
 	getLogState(obj, s);
-	obj->printer->printf("input %i, output %i\n", log.input.count(), log.output.count());
+	#if RECORD_SETPOINT
+		obj->printer->printf("setpoint %i", log.setpoint.count());
+		uint32_t setpointTimeSum = 0;
+		uint16_t lastSetpointTime = 0;
+	#endif
+	#if RECORD_FEEDBACK
+		obj->printer->printf("feedback %i", log.feedback.count());
+		uint32_t feedbackTimeSum = 0;
+		uint16_t lastFeedbackTime = 0;
+	#endif
+	#if RECORD_OUTPUT
+		obj->printer->printf("output %i", log.output.count());
+		uint32_t outputTimeSum = 0;
+		uint16_t lastOutputTime = 0;
+	#endif
+	obj->printer->printf("\n");
+	// TODO this needs a large rewrite
+	// create a function that prints one of these all at once, then the next instead of jamming all onto the same line
 
-	uint32_t counter = 0;
-	while ((log.input.count() > 0) && (log.output.count() > 0))
+	while (
+	#if RECORD_SETPOINT
+		(log.setpoint.count() > 0) ||
+	#endif
+	#if RECORD_FEEDBACK
+		(log.feedback.count() > 0) ||
+	#endif
+	#if RECORD_OUTPUT
+		(log.output.count() > 0) ||
+	#endif
+	false )
 	{
-		obj->printer->printf(LOG_TOKEN " %i\tf: %i\t o: %i" EOL, counter++, log.input.pop_back(), log.output.pop_back());
+		obj->printer->printf(LOG_TOKEN);
+		#if RECORD_SETPOINT
+			if (log.setpoint.count() > 0 && log.setpointTime.count() > 0)
+			{
+				uint16_t time = log.setpointTime.pop_back();
+				if (time < lastSetpointTime)
+				{
+					setpointTimeSum += 1 << 16;
+				}
+				lastSetpointTime = time;
+				obj->printer->printf("\t" SETPOINT_TOKEN TIME_TOKEN ": %i\t" SETPOINT_TOKEN ": %i", setpointTimeSum + time, log.setpoint.pop_back());
+			}
+		#endif
+		#if RECORD_FEEDBACK
+			if (log.feedback.count() > 0 && log.feedbackTime.count() > 0)
+			{
+				uint16_t time = log.feedbackTime.pop_back();
+				if (time < lastFeedbackTime)
+				{
+					feedbackTimeSum += 1 << 16;
+				}
+				lastFeedbackTime = time;
+				obj->printer->printf("\t" FEEDBACK_TOKEN TIME_TOKEN ": %i\t" FEEDBACK_TOKEN ": %i", feedbackTimeSum + time, log.feedback.pop_back());
+			}
+		#endif
+		#if RECORD_OUTPUT
+			if (log.output.count() > 0 && log.outputTime.count() > 0)
+			{
+				uint16_t time = log.outputTime.pop_back();
+				if (time < lastOutputTime)
+				{
+					outputTimeSum += 1 << 16;
+				}
+				lastOutputTime = time;
+				obj->printer->printf("\t" OUTPUT_TOKEN TIME_TOKEN ": %i\t" OUTPUT_TOKEN ": %i", outputTimeSum + time, log.output.pop_back());
+			}
+		#endif
+			obj->printer->printf("\n");
 	}
 
-	log.input.clear();
-	log.output.clear();
+	log.sinceLogStart = 0;
 }
 
 void getName(CommandParserObjects* obj, char* s)
