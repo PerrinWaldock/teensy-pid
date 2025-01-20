@@ -10,6 +10,8 @@ import analysis
 class PidTester:
     def __init__(self, pidController: PidController):
         self.pidController = pidController
+        self.pidController.kp = .05
+        self.pidController.ki = 20000
         
     def startLog(self, single=True):
         self.pidController.startLog(single=single)
@@ -22,7 +24,7 @@ class PidTester:
     def getStepResponse(self, sv1=0, sv2=3):
         self.pidController.pidActive = True
         self.pidController.sv = sv1
-        time.sleep(.1)
+        time.sleep(.05)
         self.startLog(single=True)
         time.sleep(.05)
         self.pidController.sv = sv2
@@ -40,19 +42,24 @@ class PidTester:
         vals = self.getLog()
         self.pidController.pidActive = startActive
         return vals
+    
+def findMedianPeriod(times):
+    return np.median(np.diff(times))
 
 def plotStepResponse(pt, sv=3, show=False):
     times, feedbacks = pt.getStepResponse(sv2=sv)
-    T = np.mean(np.diff(times))
-    analysis.plotStepResponse(feedbacks, T, sv, show=show)
+    print("step response score:", analysis.calculateStepResponseScore(feedbacks, sv))
+    analysis.plotStepResponse(feedbacks, times, sv, show=show)
 
 def plotStability(pt, sv=3, show=False):
     times, feedbacks = pt.getSteadyState(sv=sv, pidActive=True)
     openTimes, openFeedbacks = pt.getSteadyState(sv=sv, pidActive=False)
     
-    T = np.mean(np.diff(times))
-    Topen = np.mean(np.diff(openTimes))
+    T = findMedianPeriod(times)
+    Topen = findMedianPeriod(openTimes)
     readings = {"open-loop": openFeedbacks, "closed-loop": feedbacks}
+    print("closed-loop score:", analysis.calculateStabilityScore(feedbacks, sv))
+    print("open-loop score:", analysis.calculateStabilityScore(openFeedbacks, sv))
     analysis.plotAllans(readings, T, show=False)
     analysis.plotSpectra(readings, Topen, show=show)
 

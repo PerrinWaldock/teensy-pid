@@ -711,17 +711,17 @@ void logGetter(CommandParserObjects* obj, char* s)
 	DataLog& log = *(obj->log);
 	getLogState(obj, s);
 	#if RECORD_SETPOINT
-		obj->printer->printf("setpoint %i", log.setpoint.count());
+		obj->printer->printf("setpoint %i\t", log.setpoint.count());
 		uint32_t setpointTimeSum = 0;
 		uint16_t lastSetpointTime = 0;
 	#endif
 	#if RECORD_FEEDBACK
-		obj->printer->printf("feedback %i", log.feedback.count());
+		obj->printer->printf("feedback %i\t", log.feedback.count());
 		uint32_t feedbackTimeSum = 0;
 		uint16_t lastFeedbackTime = 0;
 	#endif
 	#if RECORD_OUTPUT
-		obj->printer->printf("output %i", log.output.count());
+		obj->printer->printf("output %i\t", log.output.count());
 		uint32_t outputTimeSum = 0;
 		uint16_t lastOutputTime = 0;
 	#endif

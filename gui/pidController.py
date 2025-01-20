@@ -5,6 +5,7 @@ import re
 from collections import deque
 import time
 from typing import List, Tuple
+import numpy as np
 
 import analysis
 
@@ -120,21 +121,21 @@ class PidController:
             setpointTime = re.search(r'(?<=st\:\s)\d+', line)
             if feedback and feedbackTime:
                 feedbacks.append(int2volt(int(feedback.group())))
-                feedbackTimes.append(int(feedbackTime.group()))
+                feedbackTimes.append(int(feedbackTime.group())/1e6)
             if output and outputTime:
                 outputs.append(int2volt(int(output.group())))
-                outputTimes.append(int(outputTime.group()))
+                outputTimes.append(int(outputTime.group())/1e6)
             if setpoint and setpointTime:
                 setpoints.append(int2volt(int(setpoint.group())))
-                setpointTimes.append(int(setpointTime.group()))
+                setpointTimes.append(int(setpointTime.group())/1e6)
                 
         retdict = {}
-        if len(feedbacks) > 0:
-            retdict["feedback"] = (feedbackTimes, feedbacks)
-        if len(feedbacks) > 0:
-            retdict["setpoint"] = (setpointTimes, setpoints)
-        if len(feedbacks) > 0:
-            retdict["output"] = (outputTimes, outputs)
+        if len(feedbacks) > 0: #TODO generate times if none reported
+            retdict["feedback"] = (np.array(feedbackTimes), np.array(feedbacks))
+        if len(setpoints) > 0:
+            retdict["setpoint"] = (np.array(setpointTimes), np.array(setpoints))
+        if len(outputs) > 0:
+            retdict["output"] = (np.array(outputTimes), np.array(outputs))
         return retdict
     
     def calibrate(self) -> None:
@@ -320,9 +321,8 @@ def test(pc: PidController):
     
     pc.startLog()
     time.sleep(.5)
-    feedbacks, outputs = pc.getLog()
-    T = 1/pc.loopFrequency
-    analysis.plotWaveforms({"feedback": feedbacks, "output": outputs}, T, show=True)
+    waveforms = pc.getLog()
+    analysis.plotWaveforms(waveforms, show=True)
     
 
 if __name__ == "__main__":

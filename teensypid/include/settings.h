@@ -78,8 +78,8 @@ const Input_Mode INPUT_MODE = DIGITAL_INPUT; // select type of setpoint input
 #define RECORD_INPUT true
 #if RECORD_INPUT
 	#define RECORD_FEEDBACK true 
-	#define RECORD_OUTPUT true
-	#define RECORD_SETPOINT true
+	#define RECORD_OUTPUT false
+	#define RECORD_SETPOINT false
 	#define RECORD_TIME true
 #endif
 

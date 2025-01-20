@@ -166,7 +166,7 @@ inline void setOutput(uint16_t out)
 		#endif
 	#endif
 
-	if (out != 0 || out != lastOut)
+	if (out != lastOut || out == 0)
 	{
 		writeDAC(out);
 
