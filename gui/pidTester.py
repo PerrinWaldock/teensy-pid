@@ -11,7 +11,7 @@ class PidTester:
     def __init__(self, pidController: PidController):
         self.pidController = pidController
         self.pidController.kp = .05
-        self.pidController.ki = 20000
+        self.pidController.ki = 10000
         
     def startLog(self, single=True):
         self.pidController.startLog(single=single)
@@ -34,11 +34,10 @@ class PidTester:
     def getSteadyState(self, sv=3, pidActive=True):
         startActive = self.pidController.pidActive
         self.pidController.sv = sv
-        time.sleep(.01)
         self.pidController.pidActive = pidActive
         time.sleep(.01)
         self.pidController.startLog(single=True)
-        time.sleep(.2)
+        time.sleep(.5)
         vals = self.getLog()
         self.pidController.pidActive = startActive
         return vals
@@ -58,8 +57,8 @@ def plotStability(pt, sv=3, show=False):
     T = findMedianPeriod(times)
     Topen = findMedianPeriod(openTimes)
     readings = {"open-loop": openFeedbacks, "closed-loop": feedbacks}
-    print("closed-loop score:", analysis.calculateStabilityScore(feedbacks, sv))
-    print("open-loop score:", analysis.calculateStabilityScore(openFeedbacks, sv))
+    print("closed-loop normalized deviation:", analysis.calculateStabilityScore(feedbacks, sv))
+    print("open-loop  normalized deviation:", analysis.calculateStabilityScore(openFeedbacks, sv))
     analysis.plotAllans(readings, T, show=False)
     analysis.plotSpectra(readings, Topen, show=show)
 
@@ -70,5 +69,9 @@ if __name__ == "__main__":
     pc = PidController()
     pt = PidTester(pc)
     
-    plotStability(pt, show=False)
-    plotStepResponse(pt, show=True)
+    pc.calibrate()
+    for _ in range(5):
+        print(f"kd={pc.kd} kp={pc.kp} ki={pc.ki}")
+        plotStability(pt, show=False)
+        plotStepResponse(pt, show=False)
+    plt.show()
