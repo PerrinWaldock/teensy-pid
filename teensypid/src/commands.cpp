@@ -16,6 +16,7 @@
 #define KI_TOKEN "ki"
 #define KD_TOKEN "kd"
 #define KS_TOKEN "ks"
+#define KLIMITS_TOKEN "kl"
 #define LOOP_RATE_TOKEN "lf"
 #define SET_POINT_MIN_TOKEN "ls"
 #define SET_POINT_MAX_TOKEN "hs"
@@ -58,6 +59,7 @@ void getKi(CommandParserObjects*, char*);
 void setKd(CommandParserObjects*, char*);
 void getKd(CommandParserObjects*, char*);
 void getKs(CommandParserObjects*, char*);
+void getKsLimits(CommandParserObjects*, char*);
 void setLoopRate(CommandParserObjects*, char*);
 void getLoopRate(CommandParserObjects*, char*);
 void setSetPointMax(CommandParserObjects*, char*);
@@ -127,6 +129,7 @@ CommandParser::CommandParser(CommandParserObjects objects)
 	addCommand(KD_TOKEN SET_TOKEN, createHandler(setKd), (void*) &(this->objects), "sets kd (float)");
 	addCommand(KD_TOKEN GET_TOKEN, createHandler(getKd), (void*) &(this->objects), "get kd (float)");
 	addCommand(KS_TOKEN GET_TOKEN, createHandler(getKs), (void*) &(this->objects), "gets all PID constants");
+	addCommand(KLIMITS_TOKEN GET_TOKEN, createHandler(getKsLimits), (void*) &(this->objects), "gets limits for all PID constants");
 
 	addCommand(LOOP_RATE_TOKEN SET_TOKEN, createHandler(setLoopRate), (void*) &(this->objects), "sets nominal loop rate (Hz)");
 	addCommand(LOOP_RATE_TOKEN GET_TOKEN, createHandler(getLoopRate), (void*) &(this->objects), "gets nominal loop rate (Hz)");
@@ -253,8 +256,23 @@ void getKs(CommandParserObjects* obj, char* s)
 		return;
 	}
 	FPid& pidController = *(obj->pidController);
-	PidParams params = pidController.getParams(); //TODO fix below
+	PidParams params = pidController.getParams();
 	obj->printer->printf(KD_TOKEN SET_TOKEN "%f, " KP_TOKEN SET_TOKEN "%f, " KI_TOKEN SET_TOKEN "%f" EOL, params.kd, params.kp, params.ki);
+}
+
+void getKsLimits(CommandParserObjects* obj, char* s)
+{
+	if (handlerHasNullPointer(obj, s))
+	{
+		return;
+	}
+	FPid& pidController = *(obj->pidController);
+	PidParams params = pidController.getParams();
+	float loopRate = (float)US_TO_S/params.loopPeriod_us;
+	obj->printer->printf("%f < " KD_TOKEN " < %f" EOL, KD_MIN(loopRate), KD_MAX(loopRate));
+	obj->printer->printf("%f < " KP_TOKEN " < %f" EOL, KP_MIN(loopRate), KP_MAX(loopRate));
+	obj->printer->printf("%f < " KI_TOKEN " < %f" EOL, KI_MIN(loopRate), KI_MAX(loopRate));
+
 }
 
 void setLoopRate(CommandParserObjects* obj, char* s)

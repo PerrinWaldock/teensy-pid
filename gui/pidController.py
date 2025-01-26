@@ -12,7 +12,10 @@ import analysis
 """
 look for possible usb devices (dependant on os)
 provide interface to set pid constants https://docs.python.org/3/library/functions.html#
-    
+
+TODO
+    get limits, check limits when setting values
+
 commands to test:
     get/set ks
     setpoints

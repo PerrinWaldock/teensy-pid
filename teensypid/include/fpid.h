@@ -16,12 +16,12 @@ also need separate EEPROM writer
 #define OUTPUT_BITS DAC_BITS
 
 // TODO limits checking in commands
-#define KP_MIN(f) (1/PARAM_MULT)
-#define KP_MAX(f) (PARAM_MAX)
+#define KP_MIN(f) (1.0/PARAM_MULT)
+#define KP_MAX(f) (float)(PARAM_MAX)
 #define KI_MIN(f) (KP_MIN(f)*f)
 #define KI_MAX(f) (KP_MAX(f)*f)
-#define KD_MIN(f) (KD_MIN(f)/f)
-#define KD_MAX(f) (KD_MAX(f)/f)
+#define KD_MIN(f) (KP_MIN(f)/f)
+#define KD_MAX(f) (KP_MAX(f)/f)
 
 typedef struct
 {
