@@ -101,7 +101,7 @@ class PidController:
         return float(m.group())
             
     def startLog(self, single: bool=False) -> None:
-        self.sendCommandExpectingSameResponse(f"lg={'s' if single else 'c'}") #TODO check for response
+        self.sendCommandExpectingSameResponse(f"lg={'s' if single else 'c'}")
         
     def getLog(self):
         self.sendCommandExpectingSameResponse("lg=o")

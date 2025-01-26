@@ -115,7 +115,7 @@ const float DEFAULT_MAX_OUTPUT_VOLTS = DAC_REFERENCE_VOLTAGE;
     const uint32_t FF_CALIBRATION_ARRAY_BITS = 8;
 #endif
 
-const uint16_t SLEW_RATE_POWER_PER_US = 14;
+const uint16_t SLEW_RATE_POWER_PER_US = 13;
 
 
 #define FEEDBACK_TOKEN "f"
