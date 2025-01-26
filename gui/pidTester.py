@@ -2,16 +2,19 @@ import time
 import matplotlib.pyplot as plt
 import argparse
 import numpy as np
+from tqdm import tqdm
+from random import random
 
 from pidController import PidController
 import analysis
 
+DEFAULT_RUNS = 25
 
 class PidTester:
     def __init__(self, pidController: PidController):
         self.pidController = pidController
-        self.pidController.kp = .05
-        self.pidController.ki = 10000
+        self.pidController.kp = .2
+        self.pidController.ki = 27000
         
     def startLog(self, single=True):
         self.pidController.startLog(single=single)
@@ -45,7 +48,7 @@ def findMedianPeriod(times):
 
 def plotStepResponse(pt, sv=3, show=False, plot=True):
     times, feedbacks = pt.getStepResponse(sv2=sv)
-    score = analysis.calculateStepResponseScore(feedbacks, sv)
+    score = analysis.calculateStepResponseScore(feedbacks, pt.pidController.sv)
     print("step response score:", score)
     if plot:
         analysis.plotStepResponse(feedbacks, times, sv, show=show)
@@ -56,30 +59,37 @@ def plotStability(pt, sv=3, open=True, show=False, plot=True):
     T = findMedianPeriod(times)
     score = analysis.calculateStabilityScore(feedbacks, sv)
     readings = {"closed-loop": feedbacks}
-    print("closed-loop normalized deviation:", score)
+    # print(f"closed-loop normalized deviation for {sv}:", score)
     if open:
         openTimes, openFeedbacks = pt.getSteadyState(sv=sv, pidActive=False)
         Topen = findMedianPeriod(openTimes)
         readings["open-loop"] = openFeedbacks
-        print("open-loop  normalized deviation:", analysis.calculateStabilityScore(openFeedbacks, sv))
+        # print(f"open-loop normalized deviation for {sv}:", analysis.calculateStabilityScore(openFeedbacks, pt.pidController.sv))
     if plot:
        analysis.plotAllans(readings, T, show=False)
        analysis.plotSpectra(readings, Topen, show=show)
     return score
 
-def calcStepResponseScore(pt, num=10, **kwargs):
+def calcStepResponseScore(pt, num=DEFAULT_RUNS, **kwargs):
     scores = []
-    for _ in range(num):
+    for _ in tqdm(range(num)):
         score = plotStepResponse(pt, plot=False, **kwargs)
         scores.append(score)
-    return np.mean(scores)
+    return np.median(scores)
 
-def calcStabilityScore(pt, num=10, **kwargs):
+def calcStabilityScore(pt, num=DEFAULT_RUNS, **kwargs):
     scores = []
-    for _ in range(num):
-        score = plotStability(pt, open=False, plot=False, **kwargs)
+    for _ in tqdm(range(num)):
+        score = plotStability(pt, sv=getRandomSetpoint(pt.pidController), open=False, plot=False, **kwargs)
         scores.append(score)
-    return np.mean(scores)
+    return np.median(scores)
+
+def getRandomSetpoint(pc: PidController):
+    limits = pc.getSetpointLimits()
+    setrange = (max(limits) - min(limits))
+    midrange = (max(limits) + min(limits))/2
+    
+    return 0.75*(random() - 0.5 )*setrange + midrange
 
 if __name__ == "__main__":
     # parser = argparse.ArgumentParser()
@@ -91,7 +101,7 @@ if __name__ == "__main__":
     pc.calibrate()
     print(f"kd={pc.kd} kp={pc.kp} ki={pc.ki}")
     print(f"Stability: {calcStabilityScore(pt)}")
-    print(f"Step Response: {calcStepResponseScore(pt)}")
+    #print(f"Step Response: {calcStepResponseScore(pt)}")
         
     plotStability(pt, show=False)
     plotStepResponse(pt, show=False)

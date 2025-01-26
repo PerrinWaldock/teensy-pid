@@ -173,6 +173,7 @@ class PidController:
     
     @ki.setter
     def ki(self, value: float):
+        value = round(value, 0)
         command = f"ki={value}"
         self.sendCommandExpectingSameResponse(command)
     
@@ -182,6 +183,7 @@ class PidController:
     
     @kp.setter
     def kp(self, value: float):
+        value = round(value, 4)
         command = f"kp={value}"
         self.sendCommandExpectingSameResponse(command)
     
@@ -191,6 +193,7 @@ class PidController:
     
     @kd.setter
     def kd(self, value: float):
+        value = round(value, 6)
         command = f"kd={value}"
         self.sendCommandExpectingSameResponse(command)
     

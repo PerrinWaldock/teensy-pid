@@ -13,20 +13,6 @@
 #include "datalogger.h"
 #include "printstate.h"
 
-/*
-TODO
-	clean up and update the README
-	clean up header files, make sure stuff is only defined in one place
-	consider making different files classes
-		commandregistrar
-			gets passed some sort of serial object (inherits from print)
-			convert print statements to using printf
-		also pass serial object to all other classes
-	look into async ADC reads
-		Bhttps://github.com/hideakitai/TsyDMASPI
-*/
-
-// TODO move to its own file
 uint16_t getSetPoint();
 uint16_t getFeedback();
 void setOutput(uint16_t);

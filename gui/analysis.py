@@ -112,7 +112,7 @@ def expectedResponse(stepInd, desired, n):
 
 def calculateStabilityScore(xs, desired):
     xs = np.array(xs)
-    return np.sqrt(np.sum((xs/desired - 1)**2))
+    return np.sqrt(np.sum((xs - desired)**2))
 
 def calculateStepResponseScore(xs, desired, consecutivePointsInStdevIsSettled=3):
     crossings = findCrossings(xs)
