@@ -169,15 +169,18 @@ inline void setOutput(uint16_t out)
 	if (out != lastOut || out == 0)
 	{
 		writeDAC(out);
+		elapsedMicros outTime;
 
-		int32_t change = out - lastOut;
+		int32_t change = (int32_t)out - (int32_t)lastOut;
+		lastOut = out;
 		if (change < 0)
 		{
 			change *= -1;
 		}
 
 		#if OUTPUT_SETTLE
-			delayMicroseconds((change >> SLEW_RATE_POWER_PER_US));
+			uint8_t delayTimeUs = change >> SLEW_RATE_POWER_PER_US;
+			while (outTime < delayTimeUs);
 		#endif
 	}
 }

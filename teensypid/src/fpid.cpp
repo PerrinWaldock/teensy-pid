@@ -82,16 +82,16 @@ void FPid::iterate()
             performCalc = false;
         }
     #endif
-
+//lastIterationTime = timeSinceLastRun;
     #if FEED_FORWARD
         int32_t output = feedForward.getArray()[setPoint];
     #else
         int32_t output = HALF_MAX_OUTPUT;
     #endif
-
     if (performCalc)
     {
-        lastFeedBack = (*getFeedback)();;
+        lastFeedBack = (*getFeedback)();
+//lastIterationTime = timeSinceLastRun;
         lastPid = pidController.step(setPoint - HALF_MAX_INPUT, lastFeedBack - HALF_MAX_INPUT);
         
         #if NEGATIVE_OUTPUT
@@ -99,6 +99,7 @@ void FPid::iterate()
         #endif
 
         output += lastPid;
+//lastIterationTime = timeSinceLastRun;
     }
     else
     {
@@ -106,7 +107,7 @@ void FPid::iterate()
             lastFeedBack = getFeedback();
         #endif
     }
-
+//lastIterationTime = timeSinceLastRun;
     setOutputWithLimits(output);
     lastIterationTime = timeSinceLastRun;
 }
