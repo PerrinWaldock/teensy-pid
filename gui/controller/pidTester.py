@@ -6,7 +6,7 @@ from tqdm import tqdm
 from random import random
 
 from pidController import PidController
-import analysis
+import gui.controller.analysis as analysis
 
 DEFAULT_RUNS = 25
 

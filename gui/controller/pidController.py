@@ -7,7 +7,7 @@ import time
 from typing import List, Tuple
 import numpy as np
 
-import analysis
+import gui.controller.analysis as analysis
 
 """
 look for possible usb devices (dependant on os)
@@ -15,7 +15,8 @@ provide interface to set pid constants https://docs.python.org/3/library/functio
 
 TODO
     get limits, check limits when setting values
-
+    get the controller to calibrate its loop rate by finding average loop time over a period
+        
 commands to test:
     get/set ks
     setpoints
