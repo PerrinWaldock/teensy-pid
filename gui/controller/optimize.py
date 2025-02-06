@@ -15,13 +15,13 @@ if __name__ == "__main__":
         kp, ki = p
         pc.kp = kp
         pc.ki = ki
-        return calcStabilityScore(pt)
+        return calcStabilityScore(pt, num = 100)
     
     kirange = [30,50000.0]
     kprange = [0.0003,.5]
     
     res = gp_minimize(getScore,
                       (kprange, kirange),
-                      n_calls=100,
+                      n_calls=200,
                       verbose=True)
     print(res.x)

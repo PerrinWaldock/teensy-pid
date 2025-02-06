@@ -583,6 +583,7 @@ void resetPidState(CommandParserObjects* obj, char* s)
 		return;
 	}
 	obj->pidController->reset();
+	obj->printer->printf(RESET_TOKEN EOL);
 }
 
 void setPidEnable(CommandParserObjects* obj, char* s)
@@ -798,6 +799,19 @@ void logGetter(CommandParserObjects* obj, char* s)
 		#endif
 			obj->printer->printf("\n");
 	}
+
+	#if RECORD_SETPOINT
+		log.setpoint.clear();
+		log.setpointTime.clear();
+	#endif
+	#if RECORD_FEEDBACK
+		log.feedback.clear();
+		log.feedbackTime.clear();
+	#endif
+	#if RECORD_OUTPUT
+		log.output.clear();
+		log.outputTime.clear();
+	#endif
 
 	log.sinceLogStart = 0;
 }

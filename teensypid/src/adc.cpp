@@ -37,7 +37,7 @@ continuous
 #define CONVERSION_TIME_NS 700//700 is typical, 710 is max
 #define MULTIPLE_ACQUISITION_TIME_NS 0
 #define WAIT_TIME_NS 10
-#define CLOCK_DELAY_NS 1
+#define CLOCK_DELAY_NS 2
 #define CALIBRATION_TIMEOUT_MS 2000
 
 void initADC() {

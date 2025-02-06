@@ -52,10 +52,15 @@ def plotWaveforms(waveforms, title="Voltage vs Time", show=False):
 def plotSpectrum(xs, T, show=False):
     plotSpectra({"": xs}, T, show=show)
 
-def plotSpectra(waveforms, T, show=False):
+def plotSpectra(waveforms, show=False):
     plt.figure()
-    for key, xs in waveforms.items():
-        fs, amps = spectrum(xs, T)
+    for key, values in waveforms.items():
+        ts = values[0]    
+        vs = values[1]
+        if not isIterable(ts):
+            ts = np.arange(len(vs))*ts
+        T = np.mean(np.diff(ts))
+        fs, amps = spectrum(vs, T)
         plt.plot(fs, amps, label=key)
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("Amplitudes (V)")
@@ -68,10 +73,15 @@ def plotSpectra(waveforms, T, show=False):
 def plotAllan(xs, T, show=False):
     plotAllans({"": xs}, T, show=show)
 
-def plotAllans(waveforms, T, show=False):
+def plotAllans(waveforms, show=False):
     plt.figure()
-    for key, xs in waveforms.items():
-        ats, avs = allanVariances(xs, T)
+    for key, values in waveforms.items():
+        ts = values[0]    
+        vs = values[1]
+        if not isIterable(ts):
+            ts = np.arange(len(vs))*ts
+        T = np.mean(np.diff(ts))
+        ats, avs = allanVariances(vs, T)
         plt.plot(ats, avs, label=key)
     plt.yscale("log")
     plt.xscale("log")
@@ -131,7 +141,7 @@ def plotStepResponse(xs, ts, desired, show=False):
         xs = xs[:crossings[1]]
     stepInd = crossings[0]
     settledInd = findSettledInd(xs, desired)
-    bufferInds = int(.1*(settledInd - stepInd))
+    bufferInds = int(.1*(settledInd - stepInd)) + 10
     lastInd = settledInd + bufferInds
     startInd = stepInd - bufferInds
     expected = expectedResponse(stepInd, desired, len(xs))

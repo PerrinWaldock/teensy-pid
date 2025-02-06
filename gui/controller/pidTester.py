@@ -6,47 +6,70 @@ from tqdm import tqdm
 from random import random
 
 from pidController import PidController
-import gui.controller.analysis as analysis
+import analysis as analysis
 
-DEFAULT_RUNS = 25
+DEFAULT_RUNS = 0
 
 class PidTester:
     def __init__(self, pidController: PidController):
         self.pidController = pidController
-        self.pidController.kp = .2
-        self.pidController.ki = 27000
+        self.pidController.kd = 0#1e-6
+        self.pidController.kp = .01#.2 #.2
+        self.pidController.ki = 45000#5000 #27000
+        self.pidController.calibrate()
         
     def startLog(self, single=True):
         self.pidController.startLog(single=single)
+        
+    def getDefaultSetpoint(self):
+        limits = self.pidController.getSetpointLimits()
+        return np.mean(limits)
+        
+    def getDefaultUpperSetpoint(self):
+        limits = self.pidController.getSetpointLimits()
+        range = max(limits) - min(limits)
+        return min(limits) + .8*range
         
     def getLog(self):
         log = self.pidController.getLog()
         times, feedbacks = log["feedback"]
         return (times, feedbacks)
     
-    def getStepResponse(self, sv1=0, sv2=3):
+    def getStepResponse(self, sv1=0, sv2=None):
+        if sv2 is None:
+            sv2 = self.getDefaultUpperSetpoint()
         self.pidController.pidActive = True
         self.pidController.sv = sv1
+        time.sleep(.1)
         self.startLog(single=True)
-        time.sleep(.05)
+        time.sleep(.2)
         self.pidController.sv = sv2
-        return self.getLog()
+        log = self.getLog()
+        return log
     
-    def getSteadyState(self, sv=3, pidActive=True):
+    def getSteadyState(self, sv=None, pidActive=True):
+        if sv is None:
+            sv = self.getDefaultSetpoint()
         startActive = self.pidController.pidActive
         self.pidController.sv = sv
         self.pidController.pidActive = pidActive
-        time.sleep(.01)
+        time.sleep(.05)
         self.pidController.startLog(single=True)
-        time.sleep(.5)
-        vals = self.getLog()
+        time.sleep(.2)
+        log = self.getLog()
         self.pidController.pidActive = startActive
-        return vals
+        return log[0][20:], log[1][20:]
     
 def findMedianPeriod(times):
     return np.median(np.diff(times))
 
-def plotStepResponse(pt, sv=3, show=False, plot=True):
+def plotTransfer(pt: PidTester, show=False):
+    feedbacks, outputs = pt.pidController.getFeedForwardReadings()
+    analysis.plotTransfer(outputs, feedbacks, show=show)
+
+def plotStepResponse(pt: PidTester, sv=None, show=False, plot=True):
+    if sv is None:
+        sv = pt.getDefaultUpperSetpoint()
     times, feedbacks = pt.getStepResponse(sv2=sv)
     score = analysis.calculateStepResponseScore(feedbacks, pt.pidController.sv)
     print("step response score:", score)
@@ -54,20 +77,27 @@ def plotStepResponse(pt, sv=3, show=False, plot=True):
         analysis.plotStepResponse(feedbacks, times, sv, show=show)
     return score
 
-def plotStability(pt, sv=3, open=True, show=False, plot=True):
+def plotStability(pt: PidTester, sv=None, open=True, show=False, plot=True):
+    if sv is None:
+        sv = pt.getDefaultSetpoint()
     times, feedbacks = pt.getSteadyState(sv=sv, pidActive=True)   
     T = findMedianPeriod(times)
     score = analysis.calculateStabilityScore(feedbacks, sv)
     readings = {"closed-loop": feedbacks}
+    readingsWithTimes = {"closed-loop": (times, feedbacks)}
     # print(f"closed-loop normalized deviation for {sv}:", score)
     if open:
         openTimes, openFeedbacks = pt.getSteadyState(sv=sv, pidActive=False)
         Topen = findMedianPeriod(openTimes)
         readings["open-loop"] = openFeedbacks
+        readingsWithTimes["open-loop"] = (openTimes, openFeedbacks)
         # print(f"open-loop normalized deviation for {sv}:", analysis.calculateStabilityScore(openFeedbacks, pt.pidController.sv))
     if plot:
-       analysis.plotAllans(readings, T, show=False)
-       analysis.plotSpectra(readings, Topen, show=show)
+        print(len(times), times)
+        print(len(openTimes), openTimes)
+        analysis.plotWaveforms(readingsWithTimes, show=False)
+        analysis.plotAllans(readingsWithTimes, show=False)
+        analysis.plotSpectra({k: (t, v - sv) for k, (t,v) in readingsWithTimes.items()}, show=show)
     return score
 
 def calcStepResponseScore(pt, num=DEFAULT_RUNS, **kwargs):
@@ -103,6 +133,7 @@ if __name__ == "__main__":
     print(f"Stability: {calcStabilityScore(pt)}")
     #print(f"Step Response: {calcStepResponseScore(pt)}")
         
+    plotTransfer(pt, show=False)
     plotStability(pt, show=False)
     plotStepResponse(pt, show=False)
     plt.show()

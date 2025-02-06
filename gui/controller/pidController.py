@@ -7,7 +7,7 @@ import time
 from typing import List, Tuple
 import numpy as np
 
-import gui.controller.analysis as analysis
+import analysis as analysis
 
 """
 look for possible usb devices (dependant on os)
@@ -26,6 +26,7 @@ commands to test:
     force output voltage
     get limits
     loop frequency
+    calibrate
 
 higher-level functions (in different file -- pidTester)
     step response
@@ -45,6 +46,7 @@ def int2volt(x):
 class PidController:
     def __init__(self, port: str=None, **kwargs):
         self.portname = findPort(port)
+        self.sendCommand("po=0")
         self.lp = 1e-5
         self._svs = None
         
@@ -198,7 +200,7 @@ class PidController:
     @kd.setter
     def kd(self, value: float):
         value = round(value, 6)
-        command = f"kd={value}"
+        command = f"kd={value:f}"
         self.sendCommandExpectingSameResponse(command)
     
     @property
