@@ -1,10 +1,15 @@
 # Teensy-based Intensity Feedback Controller Guide
 
-This repository contains code and PCBs for creating Teensy microcontroller-based feedback controllers. They are used to control the laser intensity on Prometheus because (a) they are relatively inexpensive and (b) they provide faster rise times than similarly-priced analog feedback controllers.
+This repository contains code and PCBs for creating Teensy microcontroller-based feedback controllers. They have been used to control the laser intensity on ultracold atom experiments because (a) they are relatively inexpensive and (b) they provide faster rise times than similarly-priced analog feedback controllers.
+
+When used to lock to itself, the latest version of the PCB and firmwarecan achieve 
+* a loop rate of 100 kHz
+* a standard deviation of TODO
+* a rise time of <10 us
 
 ## PCB-free Feedback Controller
 
-The code in the `multistate` branch is currently installed in the Prometheus apparatus. It is running on a Teensy 3.2 because that microcontroller has 5V-tolerant digital inputs, and an inbuilt DAC. It uses two digital signals from the QDGBus digital outputs to select one of four setpoints which are configured over USB. It controls the voltage into a XM-B6H4-0404C-01.
+The code in the `multistate` branch can be used without the PCB. It can only run a Teensy 3.2 because that microcontroller has 5V-tolerant digital inputs, and an inbuilt DAC. It uses two digital signals from digital outputs to select one of four setpoints which are configured over USB. It controls the voltage into a XM-B6H4-0404C-01.
 
 However, this setup has some flaws:
 * the inbuilt ADC and DAC are noisy, with only ~8-10 usable bits. This limits the feedback stability shown in the above posts.
@@ -25,9 +30,9 @@ The new PCB and its corresponding control code is in the `master` branch of the 
 
 ## PCB Important Components
 The KiCAD design files and schematics are in the schematics folder of this repository. Below is a guide to some components that can be populated or depopulated to change the performance characteristics of the board:
-* R1: Populate this to give this board a 50-ohm terminated input. Useful when interfacing with a [PDA100A2](https://www.thorlabs.com/thorproduct.cfm?partnumber=PDA100A2) because they produce a 0-5V output when terminated with a 50 ohm load.
+* R1: Populate this to give this board a 50-ohm terminated input. This can be useful when interfacing with a [PDA100A2](https://www.thorlabs.com/thorproduct.cfm?partnumber=PDA100A2) because they produce a 0-5V output when terminated with a 50 ohm load.
   * One can also modify the values of R1, R2 to remove a DC offset from the input signal, or modify the values of R7 and R9 to amplify the input. Useful if the input is a small signal.
-* R3: Populate this to bypass the input op amp. Do not do this without first disconnecting the op amp from by depopulating R2 and R9. Often used when R15 and R17 are populated to use the internal ADC instead of the external ADC (not recommended).
+* R3: Populate this to bypass the input op amp. Do not do this without first disconnecting the op amp from by depopulating R2 and R9. Often used when R15 and R17 are populated to use the Teensy internal ADC instead of the external ADC (not recommended).
 * C1 and R7: Change these values to change the input op amp filter (currently not populated).
 * R16 and R18. ONLY POPULATE ONE OF THESE AT A TIME. Used to select 5V or 3.3V reference. If 5V reference is selected (R18), make sure to depopulate R6 so that the input voltage range is the full 0V-5V.
 * R34: Populate to use external 5V instead of USB 5V power. DO NOT DO THIS WITHOUT FIRST COVERING THE PIN THAT SUPPLIES POWER ON THE USB CABLE: https://community.octoprint.org/t/put-tape-on-the-5v-pin-why-and-how/13574
@@ -91,7 +96,14 @@ Via the USB serial connection, enter the following comnmands:
 * `po=0` (turn off the output)
 * set the tuning parameters and loop frequency with `ki=x`,`kp=x`,`kd=0`, `lf=100000`. Ensure that the calculation time does not exceed the loop period. Adjust parameters until performance is satisfactory.
 
-Some of these functions are implemented automatically in FeedbackController class in hardware/FeedbackController in the [Prometheus repository](https://qdg-code.phas.ubc.ca:2633/Perrin/PrometheusPython). This class automatically uses USB commands to assign different set voltages to different set voltage states during the recipe's compile time, then uses digital outputs to select those states while the recipe is executing. It automatically calibrates the feedforward function during compile time.
+### Notes for the UBC QDG Lab
+To achieve a rapid response time, the set point needs to be selected using the digital inputs. It is easiest to do so by programming the desired setpoints ahead of time, then selecting the desired set point via the digital input. Code to do this is in the FeedbackController class in hardware/FeedbackController in the [Prometheus repository](https://qdg-code.phas.ubc.ca:2633/Perrin/PrometheusPython). This class automatically uses USB commands to assign different set voltages to different set voltage states during the recipe's compile time, then uses digital outputs to select those states while the recipe is executing. It automatically calibrates the feedforward function during compile time.
+
+## Programming Instructions
+This was developed as a PlatformIO project in VS Code. The easiest way to modify and compile it is to get the PlatformIO VS Code extension
+
+## GUI and Python Scripts
+
 
 ## Future Work To Do
 ### Speeding things up
