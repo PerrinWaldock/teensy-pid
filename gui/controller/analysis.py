@@ -1,7 +1,7 @@
 import numpy as np
 from collections import deque
 import matplotlib.pyplot as plt
-from utils import *
+from .utils import *
 
 def spectrum(xs, T):
     amplitudes = np.abs(np.fft.fft(xs))

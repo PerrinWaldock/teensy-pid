@@ -7,7 +7,7 @@ import time
 from typing import List, Tuple
 import numpy as np
 
-import analysis as analysis
+from . import analysis as analysis
 
 """
 look for possible usb devices (dependant on os)
@@ -43,7 +43,7 @@ TIMEOUT = .2#.05
 def int2volt(x):
     return x*5.0/(2**16 - 1)
 
-class PidController:
+class PidController: #TODO make it inherit from AbstractPidController
     def __init__(self, port: str=None, **kwargs):
         self.portname = findPort(port)
         self.sendCommand("po=0")
@@ -227,8 +227,8 @@ class PidController:
         return self._svs
     
     @svs.setter
-    def svs(self, value: float):
-        updateSetpoints(self, value)
+    def svs(self, values: List[float]):
+        self._svs = values
     
     def refreshSetpoints(self, responses: List[str]=None):
         if responses is None:

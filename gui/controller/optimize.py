@@ -1,9 +1,9 @@
 from skopt import gp_minimize
-from pidTester import PidTester, PidController, calcStabilityScore
-
 #TODO try minimizing stability score using gp_minimize
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
+    from pidTester import PidTester, PidController, calcStabilityScore
+
     # parser = argparse.ArgumentParser()
     # parser.add_argument("-s")
     
