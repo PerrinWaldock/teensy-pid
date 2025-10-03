@@ -16,19 +16,19 @@ class View:
         self.addDoubleEntry("loopFrequency", label="Loop Frequency (Hz)")
         
         self.addDoubleEntries("setPoints", selectionName="activeSetPoint", labelformat="Set Point {0} (V)")
+        self.addButton("Push Values", lambda: self.update(), column=0)
+        self.addButton("Pull Values", lambda: self.reset(), column=1)
         
         # launch a "stability plot" gui to get parameters?
         # launch a "step response" gui to get parameters?
-        # 
         
         self.addCheckButton("pidActive", label="Feedback Active")
-        self.addButton("Push Values", lambda: self.update(), column=0)
-        self.addButton("Pull Values", lambda: self.reset(), column=1)
         self.addButton("Calibrate", lambda: vm.calibrate())
         self.addButton("Save Parameters", lambda: vm.saveParameters())
         self.addButton("Load Parameters", lambda: vm.loadParameters())
+        self.addButton("View Feedforward Model", lambda: vm.transferPlot())
         self.addButton("Generate Step Response", lambda: vm.stepResponse())
-        self.addButton("Generate Stability Plot", lambda: vm.stepResponse()) # TODO spawn separate GUI
+        self.addButton("Generate Stability Plot", lambda: vm.stabilityPlot()) # TODO spawn separate GUI using TopLevel?
         
     def addButton(self, text: str, command: callable, padx: int=5, pady: int=5, column: int=2):
         button = tk.Button(self.root,

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List, Tuple
 
 class AbstractPidController(ABC):
     
@@ -53,4 +54,24 @@ class AbstractPidController(ABC):
     
     @abstractmethod
     def calibrate(self):
+        pass
+    
+    @abstractmethod
+    def getFeedForwardReadings(self) -> Tuple[List[float]]:
+        pass
+    
+    @abstractmethod
+    def forceOutput(self, voltage: float) -> None:
+        pass
+    
+    @abstractmethod
+    def getSetpointLimits(self) -> Tuple[float]:
+        pass
+    
+    @abstractmethod
+    def startLog(self, single: bool=False) -> None:
+        pass
+       
+    @abstractmethod 
+    def getLog(self) -> dict[str, List[float]]:
         pass

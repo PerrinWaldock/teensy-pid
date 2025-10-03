@@ -8,6 +8,7 @@ from typing import List, Tuple
 import numpy as np
 
 from . import analysis as analysis
+from . import AbstractPidController
 
 """
 look for possible usb devices (dependant on os)
@@ -43,7 +44,7 @@ TIMEOUT = .2#.05
 def int2volt(x):
     return x*5.0/(2**16 - 1)
 
-class PidController: #TODO make it inherit from AbstractPidController
+class PidController(AbstractPidController): #TODO unify abstract and concrete pid controller
     def __init__(self, port: str=None, **kwargs):
         self.portname = findPort(port)
         self.sendCommand("po=0")
@@ -109,7 +110,7 @@ class PidController: #TODO make it inherit from AbstractPidController
     def startLog(self, single: bool=False) -> None:
         self.sendCommandExpectingSameResponse(f"lg={'s' if single else 'c'}")
         
-    def getLog(self):
+    def getLog(self) -> dict[str, List[float]]:
         self.sendCommandExpectingSameResponse("lg=o")
         lines = self.elicitResponses("lg?")
         feedbacks = deque()
@@ -149,7 +150,7 @@ class PidController: #TODO make it inherit from AbstractPidController
         if response != "Calibrated!":
             raise Exception(f"Calibration response: {response}")
         
-    def getFeedForwardReadings(self) -> Tuple[List[float]]:
+    def getFeedForwardReadings(self) -> Tuple[List[float], List[float]]:
         lines = self.elicitResponses("ff?")
         feedbacks = deque()
         outputs = deque()
@@ -229,6 +230,10 @@ class PidController: #TODO make it inherit from AbstractPidController
     @svs.setter
     def svs(self, values: List[float]):
         self._svs = values
+        
+    @property
+    def svind(self):
+        return self._svind
     
     def refreshSetpoints(self, responses: List[str]=None):
         if responses is None:
