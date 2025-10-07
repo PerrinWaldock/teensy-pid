@@ -24,7 +24,7 @@ def test_lpf():
     
     assert math.isclose(expected, measured, rel_tol=1e-3)
 
-def test_noise():
+def test_gaussian_noise():
     T = 1e-5
     Fsignal = 10
     amplitude = 10
@@ -38,6 +38,48 @@ def test_noise():
     
     tolerance = deviation/amplitude*1e-2
     assert math.isclose(deviation, stdev, rel_tol=tolerance)
+
+#TODO random walk noise and biased random walk noise
+def test_random_walk_noise():
+    T = 1e-3
+    ts = np.linspace(0,1,int(1/T))
+    inputs = [0]*len(ts)
+    
+    model = RandomWalkNoise(T, 10)
+    outputs = list(model.simulate(inputs))
+    
+    plt.plot(ts, outputs)
+    plt.show()
+
+#TODO random walk noise and biased random walk noise
+def test_centered_random_walk_noise():
+    T = 1e-3
+    ts = np.linspace(0,1,int(1/T))
+    inputs = [0]*len(ts)
+    
+    model = CenteredRandomWalkNoise(T, 10, -1, 1)
+    outputs = list(model.simulate(inputs))
+    
+    plt.plot(ts, outputs)
+    plt.show()
+    
+
+def test_delay():
+    T = 1e-5
+    lag = 10
+    Fsignal = 10
+    amplitude = 10
+    ts = np.linspace(0,1,int(1/T))
+    inputs = amplitude*np.sin(2*np.pi*Fsignal*ts)
+    startingValue = inputs[0]
+    model = Delay(lag, startingValue=startingValue)
+    outputs = list(model.simulate(inputs))
+    
+    for ind, o in enumerate(outputs):
+        if ind < lag:
+            assert startingValue == o
+        else:
+            assert inputs[ind-lag] == o
 
 def test_pid():
     T = 1e-5

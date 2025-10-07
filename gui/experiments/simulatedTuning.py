@@ -6,21 +6,51 @@ from skopt import gp_minimize
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from controller.models import *
-from algorithms.pidTuning import Tunable, minimizeSteadystateDeviation
+from algorithms.pidTuning import *
 
+# TODO look at fourier spectrum and allan deviation of different models
+# TODO create a "coloured noise" model
 
 def main():
+    testZnTuning()
+
+def testZnTuning():
     T = 1e-5
-    fKnee = 100
+    fKnee = 1e3
     kp = 20
     ki = 1000
     kd = 0
-    Tdelay = 1e-5
+    Tdelay = 0*T
     delaySteps = int(Tdelay/T)
-    noiseDeviation = 0.5
+    noiseDeviation = 0#1e-5
+    startingValue = 0
+    
+    plantModel = ModelCollection([
+        # RandomWalkNoise(T, noiseDeviation/1e-3, -10, 10, startingValue=startingValue),
+        GaussianNoise(noiseDeviation),
+        LPF(fKnee, T, startingValue=startingValue),
+        Delay(delaySteps, startingValue=startingValue)
+    ])
+    pidModel = PID(T=T, kp=kp, ki=ki, kd=kd, model=plantModel)
+    tunableModel = TunableModel(pidModel)
+    
+    result = ziegler_nichols(tunableModel, "pid")
+    
+    print(result)
+
+def testMinimizeStepDeviation():
+    T = 1e-5
+    fKnee = 1e3
+    kp = 20
+    ki = 1000
+    kd = 0
+    Tdelay = 0*T
+    delaySteps = int(Tdelay/T)
+    noiseDeviation = 0#1e-5
     startingValue = 1
     
     plantModel = ModelCollection([
+        # RandomWalkNoise(T, noiseDeviation/1e-3, -10, 10, startingValue=startingValue),
         GaussianNoise(noiseDeviation),
         LPF(fKnee, T, startingValue=startingValue),
         Delay(delaySteps, startingValue=startingValue)
@@ -34,8 +64,20 @@ def main():
         "kdRange": (0, 100)
     }
     
-    result = minimizeSteadystateDeviation(tunableModel, **limits, setpoint=startingValue, ncalls=50)
+    #result = minimizeSteadystateDeviation(tunableModel, **limits, setpoint=startingValue, ncalls=100, verbose=True)
+    result = minimizeStepDeviations(tunableModel, 
+                                    nCycles=5,
+                                    cycleFrequency=fKnee/10,
+                                    firstSetPoint=startingValue,
+                                    secondSetPoint=0,
+                                    **limits, 
+                                    ncalls=100, 
+                                    verbose=True)
+    
     print(result)
+    
+
+    
 
 #TODO there should be a way of doing this with multiple inheritence (or maybe metaclasses)
 class TunableModel(Tunable):
@@ -43,10 +85,12 @@ class TunableModel(Tunable):
         self.model = model
     
     def getOutputs(self, inputs):
-        outputs = list(self.model.simulate(inputs))
-        return self.model.feedbacks[-len(inputs):-1]
+        _ = list(self.model.simulate(inputs))
+        return list(self.model.feedbacks)[-len(inputs):-1]
     
-    def reset(self): self.model.reset()
+    def reset(self): 
+        self.model.reset()
+        self.model.clear()
     
     @property
     def kp(self): return self.model.kp

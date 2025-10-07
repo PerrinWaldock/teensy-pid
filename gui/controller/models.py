@@ -14,6 +14,7 @@ from scipy.interpolate import interp1d
 from abc import ABC, abstractmethod
 from collections import deque
 from collections.abc import Callable
+from random import random
 
 class Model(ABC):
     @abstractmethod
@@ -78,6 +79,58 @@ class GaussianNoise(FunctionModel):
             return norm.rvs(scale=self.deviation, loc=inputs[-1], size=1)[0]
         super().__init__(fn)
 
+class SinusoidalNoise(FunctionModel):
+    def __init__(self, amplitude, T, f):
+        self.t = 0
+        def fn(inputs, _):
+            self.t += T
+            return inputs[-1] + amplitude*np.sin(2*np.pi*f*self.t)
+        super().__init__(fn)
+    
+    @property
+    def adjustments(self) -> list[float]:
+        return np.array(self.outputs) - np.array(self.inputs)
+    
+class RandomWalkNoise(FunctionModel):
+    def __init__(self, T, maxSlope, startingValue=None):
+        maxStep = maxSlope*T
+        if startingValue is None:
+            startingValue = 0
+        self.offsets = deque()
+        def fn(inputs, outputs):
+            if len(outputs) > 1:
+                lastOutput = outputs[-1]
+            else:
+                lastOutput = 0
+            x = 2*random() - 1
+            offset = x*maxStep + lastOutput
+            self.offsets.append(offset)
+            return offset + inputs[-1]
+        super().__init__(fn)
+
+class CenteredRandomWalkNoise(FunctionModel):
+    def __init__(self, T, maxSlope, minValue, maxValue, startingValue=None):
+        maxStep = maxSlope*T
+        if startingValue is None:
+            startingValue = (maxValue + minValue)/2
+        self.offsets = deque()
+        def fn(inputs, outputs):
+            if len(self.offsets) > 0:
+                lastValue = self.offsets[-1]
+            else:
+                lastValue = startingValue
+            if len(outputs) > 1:
+                lastOutput = outputs[-1]
+            else:
+                lastOutput = 0
+            x = random() - 0.5
+            bias = (maxValue - lastValue)/(maxValue - minValue) - 0.5
+            offset = (x + bias)*maxStep + lastOutput
+            self.offsets.append(offset)
+            return offset + inputs[-1]
+        super().__init__(fn)
+
+#TODO test
 class Delay(FunctionModel):
     def __init__(self, lag: int=0, startingValue: float=0):
         self.lag = lag
@@ -161,6 +214,7 @@ class PidCalculator:
     
     def reset(self):
         self._errorsum = 0
+        self._lasterror = 0
 
 class PidCalculatorContainer:
     def __init__(self, calculator: PidCalculator):
@@ -191,6 +245,9 @@ class PidCalculatorContainer:
     
     def reset(self) -> None:
         self.calculator.reset()
+    
+    @abstractmethod
+    def clear(self) -> None: pass
 
 class PID(Model, PidCalculatorContainer):
     # inputs are setpoints, outputs are outputs
