@@ -99,11 +99,11 @@ class RandomWalkNoise(FunctionModel):
         self.offsets = deque()
         def fn(inputs, outputs):
             if len(outputs) > 1:
-                lastOutput = outputs[-1]
+                lastOffset = self.offsets[-1]
             else:
-                lastOutput = 0
+                lastOffset = 0
             x = 2*random() - 1
-            offset = x*maxStep + lastOutput
+            offset = x*maxStep + lastOffset
             self.offsets.append(offset)
             return offset + inputs[-1]
         super().__init__(fn)

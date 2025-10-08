@@ -4,8 +4,11 @@ import os
 import numpy as np
 from skopt import gp_minimize
 from scipy import fft
+from scipy.optimize import curve_fit, minimize
+from scipy.interpolate import interp1d
 import math
 import matplotlib.pyplot as plt
+from collections import deque
 
 VALUE_LIMIT = sys.float_info.max/1e200
 
@@ -13,7 +16,7 @@ kKeys = ["kp", "ki", "kd"]
 
 class Tunable(ABC):
     @abstractmethod
-    def getOutputs(self, inputs: list[float]) -> list[float]: pass
+    def getOutputs(self, inputs: list[float], abortCondition: callable=None) -> tuple[list[float], list[float]]: pass
     
     @abstractmethod
     def reset(self) -> None: pass
@@ -95,46 +98,106 @@ ZIEGLER_NICHOLS_FUNCTIONS = {
 def ziegler_nichols(controller: Tunable, controlType: str, setPoint: float=1, n=10000, kpMax=100):
     assert controlType in ZIEGLER_NICHOLS_FUNCTIONS
     
-    # TODO create a fit to sinusoid method
-    def sineFit(signal, guess):
-        pass
+    def sinusoid(t, A, f, phase, offset=0, gamma=0):
+        return A*np.exp(gamma*t)*np.sin(2*np.pi*f*t + phase) + offset
+    
+    def sineFit(ts, signal, p0=None):
+        maxF = 1/np.mean(np.diff(ts))
+        minF = 1/(np.max(ts) - np.min(ts))
+        maxA = np.max(signal) - np.min(signal)
+        
+        bounds = ((
+                0, 
+                minF,
+                0,
+                min(signal),
+                -maxF),
+                (maxA,
+                maxF,
+                2*np.pi,
+                max(signal),
+                maxF))
+        p0 = [min(max(x, lower), upper) for x, (lower, upper) in zip(p0, np.transpose(bounds))]
+        popt, pcov = curve_fit(
+            sinusoid, 
+            ts, 
+            signal,
+            p0=p0,
+            bounds=bounds)
+        return popt, np.sqrt(np.diag(pcov))
+    
+    def fitScore(ts, signal, fitfn):
+        # score should be between 0 and 1, higher is better
+        newTs = ts
+        #addedTs = np.diff(ts) + ts[:-1]
+        #newTs = np.array(sorted(list(ts) + list(addedTs))) #TODO interleave more efficiently
+        newSignal = interp1d(ts, signal)(newTs)
+        fittedSignal = fitfn(newTs)
+        maxValue = max(max(newSignal), max(fittedSignal)) - min(min(newSignal), min(fittedSignal))
+        deviationSum = np.sum(np.abs((newSignal - fittedSignal)/maxValue))
+        score = 1 - (deviationSum/len(newSignal))
+        return score
     
     def sinusoidScore(signal):
+        # returns score and period. Certainty score is between 0 (low) and 1 (high)
         if any(not np.isfinite(x) for x in signal):
-            return 0, 0
-        zerodsignal = (signal - np.mean(signal))
-        normsignal = zerodsignal/max(zerodsignal)
-        spectrum = np.abs(np.fft.rfft(normsignal))/len(normsignal)
-        freqs = np.fft.rfftfreq(len(normsignal), controller.T)
+            return -VALUE_LIMIT, 0
+        zerodSignal = signal - np.mean(signal)
+        spectrum = np.abs(np.fft.rfft(zerodSignal))/len(signal)
+        freqs = np.fft.rfftfreq(len(signal), controller.T)
         maxInd = np.argmax(spectrum)
         peakF = freqs[maxInd]
-        score = spectrum[maxInd]
-        return score, 1/peakF
+        amplitude = spectrum[maxInd]
+        
+        ts = np.arange(len(signal)) * controller.T
+        p0 = (amplitude, peakF, np.pi, np.mean(signal), 0)
+        try:
+            ps, (dA, df, dPhase, dOffset, dGamma) = sineFit(ts, signal, p0=p0)
+        except RuntimeError as e:
+            print(e)
+            ps = list(p0)
+            ps[4] = max(freqs)
+            ps = tuple(ps)
+        (A, f, phase, offset, gamma) = ps
+        scoreOfFit = fitScore(ts, signal, lambda t: sinusoid(t, *ps))
+        score = scoreOfFit/(np.abs(gamma) + 1e-4)
+        # plt.plot(signal)
+        # plt.plot(sinusoid(ts, *ps))
+        # plt.show()
+        return score, 1/f
     
     def getOscillationScore(kp):
+        print(f"kp={kp}")
         controller.kp = kp
         controller.reset()
         inputs = [0] + [setPoint]*n
-        outputs = controller.getOutputs(inputs)
-        score, t = sinusoidScore(outputs)
+        try:
+            feedbacks, _ = controller.getOutputs(inputs, abortCondition=lambda i, o, f: abs(f) > 100*abs(setPoint))
+            score, t = sinusoidScore(feedbacks)
+            if len(feedbacks) != len(inputs) - 1:
+                score *= len(feedbacks)/len(inputs)
+        except ValueError as e:
+            print(e)
+            return -VALUE_LIMIT, 0
         return score, t
     
     # TODO probably use a different fine-tune algorithm after the broad search
-    def findUltimateGain(kpMax=kpMax, nCalls=100):
+    def findUltimateGain(kpMax=kpMax, nCalls=50):
         result = gp_minimize(lambda p: -getOscillationScore(p[0])[0],
                       [(0.0, kpMax)],
                       n_calls=nCalls,
                       verbose=True)
         return result.x[0]
     
-    getOscillationScore(0)
-    
+    # print(getOscillationScore(31.836)) # TODO remove
     kp = findUltimateGain(kpMax=kpMax)
     score, t = getOscillationScore(kp)
     
     znFunctions = ZIEGLER_NICHOLS_FUNCTIONS[controlType]
-    results = {keyName: znFunctions[keyName](kp, t) for keyName in kKeys}
-    return results
+    result = {keyName: znFunctions[keyName](kp, t) for keyName in kKeys}
+    
+    plotResult(controller, result, np.array([0] + [setPoint]*n))
+    return result
 
 # TODO some sort step response tuning
 
@@ -142,11 +205,29 @@ def ziegler_nichols(controller: Tunable, controlType: str, setPoint: float=1, n=
 #TODO add maximum slew rate, output limits to the FPID (realistic). Skip PID for n cycles if expected output will take n cycles to change.
 #TODO read literature on tuning functions
 
+def minimizeStepDeviationsPunishingOvershoot(controller: Tunable, nCycles: int=5, cycleFrequency: float=10, ncalls: int=200, kpRange=None, kiRange=None, kdRange=None, firstSetPoint: float=0, secondSetPoint: float=1, verbose: bool=False):
+    stepSamples = int(round(0.5/(cycleFrequency*controller.T)))
+    inputs = np.tile([firstSetPoint]*stepSamples + [secondSetPoint]*stepSamples, nCycles)
+    calculateScore = generateCalculateScore(controller=controller,
+                                            inputs=inputs,
+                                            scoreCalculation=lambda i, f: punishOvershoot(i, f, overshootfn=lambda x: rmp(x, 4)**(1 + max(np.abs(x)))))
+    result = runGpMinimizeTuning(controller=controller,
+                               calculateScore=calculateScore,
+                               ncalls=ncalls,
+                               kpRange=kpRange,
+                               kiRange=kiRange,
+                               kdRange=kdRange,
+                               verbose=verbose)
+    
+    plotResult(controller, result, inputs)
+    return result
+
 def minimizeStepDeviations(controller: Tunable, nCycles: int=5, cycleFrequency: float=10, ncalls: int=200, kpRange=None, kiRange=None, kdRange=None, firstSetPoint: float=0, secondSetPoint: float=1, verbose: bool=False):
     stepSamples = int(round(0.5/(cycleFrequency*controller.T)))
     inputs = np.tile([firstSetPoint]*stepSamples + [secondSetPoint]*stepSamples, nCycles)
     calculateScore = generateCalculateScore(controller=controller,
-                                            inputs=inputs)
+                                            inputs=inputs,
+                                            scoreCalculation=lambda i, f: rms(i - f))
     result = runGpMinimizeTuning(controller=controller,
                                calculateScore=calculateScore,
                                ncalls=ncalls,
@@ -175,28 +256,33 @@ def plotResult(controller: Tunable, result: dict, inputs: list[float]):
     retuneFn = createRetuneFunction(controller, {k: k in result for k in kKeys})
     retuneFn(result.values())
     controller.reset()
-    outputs = controller.getOutputs(inputs)
-    ts = np.arange(0, len(outputs)*controller.T, controller.T)
+    feedbacks, outputs = controller.getOutputs(inputs)
+    ts = np.arange(0, len(feedbacks)*controller.T, controller.T)
     
-    plt.plot(ts, inputs[:-1], label="inputs")
-    plt.plot(ts, outputs, label="feedbacks")
-    plt.xlabel("time")
-    plt.title(f"Feedback Response with: {result}")
+    subTitleString = ",".join(f"{k}={v:0.3f}" for k,v in result.items())
+    
+    fig, (ax1, ax2) = plt.subplots(2,1, sharex=True)
+    ax2.plot(ts, outputs, label="outputs", color="black")
+    ax2.set_ylabel("Controller Outputs")
+    ax1.plot(ts, feedbacks, label="feedbacks")
+    ax1.plot(ts, inputs[:-1], label="setpoints", alpha=0.5)
+    ax1.set_ylabel("Process Values")
+    ax1.legend(loc="upper right")
+    ax2.legend(loc="lower right")
+    ax2.set_xlabel("time")
+    ax1.set_title(f"Feedback Response\n{subTitleString}")
     plt.show()
 
-def rmsFromIo(outputs, inputs):
-    return rms(outputs - inputs)
-
-def generateCalculateScore(controller: Tunable, inputs: list[float], scoreCalculation=rmsFromIo):
+def generateCalculateScore(controller: Tunable, inputs: list[float], scoreCalculation=lambda i, o: rms(i-o)):
     def calculateScore():
         try:
             controller.reset()
-            outputs = controller.getOutputs(inputs)
+            outputs, _ = controller.getOutputs(inputs)
             score = scoreCalculation(outputs, inputs[:-1])
             return score
         except ValueError as e:
             print(e)
-            return sys.float_info.max/VALUE_LIMIT
+            return VALUE_LIMIT
     return calculateScore
 
 def runGpMinimizeTuning(controller: Tunable, calculateScore: callable, ncalls: int=200, kpRange=None, kiRange=None, kdRange=None, verbose: bool=False):
@@ -223,7 +309,9 @@ def runGpMinimizeTuning(controller: Tunable, calculateScore: callable, ncalls: i
     res = gp_minimize(getScore,
                       limits,
                       n_calls=ncalls,
-                      verbose=True)
+                      verbose=True,
+                      n_points=100,
+                      n_initial_points=ncalls//2)
     params = list(res.x)
     retuneFunction(params)
     
@@ -265,3 +353,15 @@ def rmp(x: list[float], p: int) -> float:
 
 def rms(x: list[float]) -> float:
     return rmp(x, 2)
+
+def punishOvershoot(desired, actual, overshootfn=lambda x: rmp(x,4), undershootfn=lambda x: rmp(x, 2)):
+    #overshoot options: rmp(x,2)**(1 + max(x)), rmp(x,4)
+    underPoints = deque()
+    overPoints = deque()
+    for d, a in zip(desired, actual):
+        x = d - a
+        if np.abs(d) > np.abs(a):
+            underPoints.append(x)
+        else:
+            overPoints.append(x)
+    return overshootfn(np.array(overPoints)) + undershootfn(np.array(underPoints))

@@ -9,10 +9,12 @@ from controller.models import *
 from algorithms.pidTuning import *
 
 # TODO look at fourier spectrum and allan deviation of different models
+    # TODO create "visualize" and "generate" fourier and allan functions
 # TODO create a "coloured noise" model
 
 def main():
-    testZnTuning()
+    testMinimizeStepDeviation()
+    #testZnTuning()
 
 def testZnTuning():
     T = 1e-5
@@ -45,12 +47,14 @@ def testMinimizeStepDeviation():
     ki = 1000
     kd = 0
     Tdelay = 0*T
+    cycleFrequency = fKnee/10
     delaySteps = int(Tdelay/T)
-    noiseDeviation = 0#1e-5
     startingValue = 1
+    noiseDeviation = 1e-2
+    maxWalkSlope = 10*cycleFrequency
     
     plantModel = ModelCollection([
-        # RandomWalkNoise(T, noiseDeviation/1e-3, -10, 10, startingValue=startingValue),
+        RandomWalkNoise(T, maxWalkSlope, startingValue=startingValue),
         GaussianNoise(noiseDeviation),
         LPF(fKnee, T, startingValue=startingValue),
         Delay(delaySteps, startingValue=startingValue)
@@ -64,15 +68,15 @@ def testMinimizeStepDeviation():
         "kdRange": (0, 100)
     }
     
-    #result = minimizeSteadystateDeviation(tunableModel, **limits, setpoint=startingValue, ncalls=100, verbose=True)
-    result = minimizeStepDeviations(tunableModel, 
-                                    nCycles=5,
-                                    cycleFrequency=fKnee/10,
-                                    firstSetPoint=startingValue,
-                                    secondSetPoint=0,
-                                    **limits, 
-                                    ncalls=100, 
-                                    verbose=True)
+    result = minimizeStepDeviationsPunishingOvershoot(
+        tunableModel, 
+        nCycles=5,
+        cycleFrequency=cycleFrequency,
+        firstSetPoint=startingValue,
+        secondSetPoint=0,
+        **limits, 
+        ncalls=100, 
+        verbose=True)
     
     print(result)
     
@@ -84,9 +88,14 @@ class TunableModel(Tunable):
     def __init__(self, model: PidCalculatorContainer):
         self.model = model
     
-    def getOutputs(self, inputs):
-        _ = list(self.model.simulate(inputs))
-        return list(self.model.feedbacks)[-len(inputs):-1]
+    def getOutputs(self, inputs, abortCondition=None):
+        outputs = deque()
+        for i in inputs:
+            o = self.model.next(i)
+            outputs.append(o)
+            if abortCondition is not None and abortCondition(i, o, self.model.feedbacks[-1]):
+                break
+        return list(self.model.feedbacks)[-len(inputs):-1], list(outputs)[:-1]
     
     def reset(self): 
         self.model.reset()
