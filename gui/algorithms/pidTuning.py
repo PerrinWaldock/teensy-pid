@@ -210,7 +210,7 @@ def minimizeStepDeviationsPunishingOvershoot(controller: Tunable, nCycles: int=5
     inputs = np.tile([firstSetPoint]*stepSamples + [secondSetPoint]*stepSamples, nCycles)
     calculateScore = generateCalculateScore(controller=controller,
                                             inputs=inputs,
-                                            scoreCalculation=lambda i, f: punishOvershoot(i, f, overshootfn=lambda x: rmp(x, 4)**(1 + max(np.abs(x)))))
+                                            scoreCalculation=lambda i, f: punishOvershoot(i, f, overshootfn=lambda x: rmp(x, 2)**(1 + max(np.abs(x)))))
     result = runGpMinimizeTuning(controller=controller,
                                calculateScore=calculateScore,
                                ncalls=ncalls,
@@ -360,8 +360,8 @@ def punishOvershoot(desired, actual, overshootfn=lambda x: rmp(x,4), undershootf
     overPoints = deque()
     for d, a in zip(desired, actual):
         x = d - a
-        if np.abs(d) > np.abs(a):
-            underPoints.append(x)
-        else:
+        if  np.abs(a) > np.abs(d):
             overPoints.append(x)
+        else:
+            underPoints.append(x)
     return overshootfn(np.array(overPoints)) + undershootfn(np.array(underPoints))

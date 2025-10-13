@@ -282,14 +282,22 @@ class PID(Model, PidCalculatorContainer):
     def outputs(self) -> list[float]: return self.model.inputs
 
 class FPID(Model, PidCalculatorContainer):
-    def __init__(self, model: Model, minSetpoint: float, maxSetpoint: float, T: float, kp: float, ki: float, kd: float, resolution: int=12, setpointTolerance: float=None):
+    def __init__(self, model: Model, minSetpoint: float, maxSetpoint: float, minOutput: float, maxOutput: float, maxRiseRate: float, T: float, kp: float, ki: float, kd: float, resolution: int=12, setpointTolerance: float=None):
+        self._waitCycles = 0
         self.setpointTolerance = setpointTolerance
         if setpointTolerance is None:
             self.setpointTolerance = (maxSetpoint - minSetpoint) / (1 << resolution)
         
         self.model = model
+        
+        self.maxRiseRate = maxRiseRate*T #assume units are volts per second
+        assert minSetpoint < maxSetpoint
         self.minSetpoint = minSetpoint
         self.maxSetpoint = maxSetpoint
+        assert minOutput < maxOutput
+        self.minOutput = minOutput
+        self.maxOutput = maxOutput
+        
         self.resolution = resolution
         self.pidActive = False #TODO implement
         
@@ -307,16 +315,39 @@ class FPID(Model, PidCalculatorContainer):
     @property
     def outputs(self) -> list[float]: return self.model.inputs
     
-    def next(self, setpoint: float) -> float:
+    def _calculateNextOutput(self, setpoint: float) -> float:
+        boundedSetpoint = min(max(setpoint, self.minSetpoint), self.maxSetpoint)
+        setpointBounded = setpoint != boundedSetpoint
+        setpoint = boundedSetpoint
+        setpointChanged = len(self._setpoints) == 0 or np.abs(self._setpoints[-1] - setpoint) >= self.setpointTolerance
+        if setpointChanged and len(self._setpoints) > 0:
+            desiredChange = self._setpoints[-1] - setpoint
+            self._waitCycles = int(round(np.abs(desiredChange)/(self.maxRiseRate))) + 1
+        self._waitCycles -= 1
+        
         output = self.feedForwardModel(setpoint)
         adjustment = 0
-        if len(self._setpoints) > 0 and math.abs(self._setpoints[-1] - setpoint) <= self.setpointTolerance:
+        if (self._waitCycles <= 0
+            and not setpointChanged 
+            and not setpointBounded):
             error = setpoint - self.feedbacks[-1]
             adjustment = self.calculator.next(error)
         self._setpoints.append(setpoint)
         self._adjustments.append(adjustment)
         output += adjustment
-        self.model.next(output)
+        return output
+        
+    def _setOutput(self, value: float) -> None:
+        if value > self.maxOutput:
+            value = self.maxOutput
+        elif value < self.minOutput:
+            value = self.minOutput
+        self.model.next(value)
+        return value
+    
+    def next(self, setpoint: float) -> float:
+        output = self._calculateNextOutput(setpoint)
+        output = self._setOutput(output)
         return output
 
     def clear(self):
@@ -326,15 +357,17 @@ class FPID(Model, PidCalculatorContainer):
         self.reset()
     
     def _generateCalibrationFunction(self, stepSize: float=None, settleTime: float=None) -> list[float]:
+        # TODO separate settle and measure times based on max rise rate
+        DEFAULT_RESOLUTION_SKIP = 4
         if stepSize is None:
-            stepSize = (self.maxSetpoint - self.minSetpoint)/(1 << self.resolution)
+            stepSize = (self.maxSetpoint - self.minSetpoint)/(1 << (self.resolution - DEFAULT_RESOLUTION_SKIP))
         
         if settleTime is None:
-            settleTime = self.T
+            settleTime = self.T*(1 << DEFAULT_RESOLUTION_SKIP)
             
         repeats = int(round(settleTime/self.T))
-        controllerOutputs = np.repeat(np.arange(self.minSetpoint, self.maxSetpoint, stepSize), repeats=repeats)
-        controllerOutputs = np.concat((controllerOutputs, np.reverse(controllerOutputs)))
+        controllerOutputs = np.repeat(np.arange(self.minOutput, self.maxOutput, stepSize), repeats=repeats)
+        controllerOutputs = np.concat((controllerOutputs, np.flip(controllerOutputs)))
         return controllerOutputs
         
     def calibrate(self, stepSize: float=None, settleTime: float=None) -> None:
@@ -350,7 +383,6 @@ class FPID(Model, PidCalculatorContainer):
         averagedControllerOutputs = sorted(measuredValues.keys())
         averagedControllerInputs = deque()
         for o in averagedControllerOutputs:
-            averagedControllerInputs.append(np.mean(measuredValues[o]))
+            averagedControllerInputs.append(np.median(measuredValues[o])) #real controller uses mean
 
         self.feedForwardModel = interp1d(averagedControllerInputs, averagedControllerOutputs)
-        

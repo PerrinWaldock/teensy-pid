@@ -9,11 +9,12 @@ from controller.models import *
 from algorithms.pidTuning import *
 
 # TODO look at fourier spectrum and allan deviation of different models
-    # TODO create "visualize" and "generate" fourier and allan functions
+# TODO create "visualize" and "generate" fourier and allan functions
 # TODO create a "coloured noise" model
 
 def main():
-    testMinimizeStepDeviation()
+    testMinimizeStepDeviationFpid()
+    #testMinimizeStepDeviation()
     #testZnTuning()
 
 def testZnTuning():
@@ -75,11 +76,62 @@ def testMinimizeStepDeviation():
         firstSetPoint=startingValue,
         secondSetPoint=0,
         **limits, 
-        ncalls=100, 
+        ncalls=200, 
         verbose=True)
     
     print(result)
     
+def testMinimizeStepDeviationFpid():
+    T = 1e-5
+    fKnee = 1e3
+    kp = 20
+    ki = 1000
+    kd = 0
+    Tdelay = 0*T
+    cycleFrequency = fKnee/10
+    delaySteps = int(Tdelay/T)
+    startingValue = 1
+    noiseDeviation = 1e-2
+    maxWalkSlope = 10*cycleFrequency
+    
+    minSetpoint = -5
+    maxSetpoint = 5
+    minOutput = -5
+    maxOutput = 5
+    maxRiseRate = (maxSetpoint - minSetpoint)*fKnee*2
+    
+    plantModel = ModelCollection([
+        RandomWalkNoise(T, maxWalkSlope, startingValue=startingValue),
+        GaussianNoise(noiseDeviation),
+        LPF(fKnee, T, startingValue=startingValue),
+        Delay(delaySteps, startingValue=startingValue)
+    ])
+    pidModel = FPID(T=T, 
+        maxRiseRate=maxRiseRate,
+        minSetpoint=minSetpoint, 
+        maxSetpoint=maxSetpoint,
+        minOutput=minOutput,
+        maxOutput=maxOutput,
+        kp=kp, ki=ki, kd=kd, model=plantModel)
+    tunableModel = TunableModel(pidModel)
+    
+    limits = {
+        "kpRange": (0, 100),
+        "kiRange": (0, 1000000),
+        "kdRange": (0, 100)
+    }
+    
+    result = minimizeStepDeviationsPunishingOvershoot(
+        tunableModel, 
+        nCycles=5,
+        cycleFrequency=cycleFrequency,
+        firstSetPoint=startingValue,
+        secondSetPoint=0,
+        **limits, 
+        ncalls=200, 
+        verbose=True)
+    
+    print(result)
 
     
 
