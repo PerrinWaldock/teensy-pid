@@ -5,12 +5,46 @@ import os
 from skopt import gp_minimize
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from controller.models import *
+from simulation.model import *
+from simulation.noise import *
+from simulation.feedback import *
+from simulation.filters import *
 from algorithms.pidTuning import *
 
 # TODO look at fourier spectrum and allan deviation of different models
 # TODO create "visualize" and "generate" fourier and allan functions
 # TODO create a "coloured noise" model
+
+T = 1e-5
+fKnee = 1e3
+kp0 = 20
+ki0 = 1000
+kd0 = 0
+Tdelay = 0*T
+cycleFrequency = fKnee/10
+delaySteps = int(Tdelay/T)
+startingValue = 1
+noiseDeviation = 1e-2
+maxWalkSlope = 10*cycleFrequency
+
+minSetpoint = -5
+maxSetpoint = 5
+minOutput = -5
+maxOutput = 5
+maxRiseRate = (maxSetpoint - minSetpoint)*fKnee*2
+
+plantModel = ModelCollection([
+    RandomWalkNoise(T, maxWalkSlope, startingValue=startingValue),
+    GaussianNoise(noiseDeviation),
+    LPF(fKnee, T, startingValue=startingValue),
+    Delay(delaySteps, startingValue=startingValue)
+])
+
+limits = {
+    "kpRange": (0, 100),
+    "kiRange": (0, 1000000),
+    "kdRange": (0, 100)
+}
 
 def main():
     testMinimizeStepDeviationFpid()
@@ -18,57 +52,28 @@ def main():
     #testZnTuning()
 
 def testZnTuning():
-    T = 1e-5
-    fKnee = 1e3
-    kp = 20
-    ki = 1000
-    kd = 0
-    Tdelay = 0*T
-    delaySteps = int(Tdelay/T)
     noiseDeviation = 0#1e-5
     startingValue = 0
-    
     plantModel = ModelCollection([
         # RandomWalkNoise(T, noiseDeviation/1e-3, -10, 10, startingValue=startingValue),
         GaussianNoise(noiseDeviation),
         LPF(fKnee, T, startingValue=startingValue),
         Delay(delaySteps, startingValue=startingValue)
     ])
-    pidModel = PID(T=T, kp=kp, ki=ki, kd=kd, model=plantModel)
+    pidModel = PID(T=T, kp=kp0, ki=ki0, kd=kd0, model=plantModel)
     tunableModel = TunableModel(pidModel)
-    
     result = ziegler_nichols(tunableModel, "pid")
-    
     print(result)
 
 def testMinimizeStepDeviation():
-    T = 1e-5
-    fKnee = 1e3
-    kp = 20
-    ki = 1000
-    kd = 0
-    Tdelay = 0*T
-    cycleFrequency = fKnee/10
-    delaySteps = int(Tdelay/T)
-    startingValue = 1
-    noiseDeviation = 1e-2
-    maxWalkSlope = 10*cycleFrequency
-    
     plantModel = ModelCollection([
         RandomWalkNoise(T, maxWalkSlope, startingValue=startingValue),
         GaussianNoise(noiseDeviation),
         LPF(fKnee, T, startingValue=startingValue),
         Delay(delaySteps, startingValue=startingValue)
     ])
-    pidModel = PID(T=T, kp=kp, ki=ki, kd=kd, model=plantModel)
+    pidModel = PID(T=T, kp=kp0, ki=ki0, kd=kd0, model=plantModel)
     tunableModel = TunableModel(pidModel)
-    
-    limits = {
-        "kpRange": (0, 100),
-        "kiRange": (0, 1000000),
-        "kdRange": (0, 100)
-    }
-    
     result = minimizeStepDeviationsPunishingOvershoot(
         tunableModel, 
         nCycles=5,
@@ -78,49 +83,17 @@ def testMinimizeStepDeviation():
         **limits, 
         ncalls=200, 
         verbose=True)
-    
     print(result)
     
 def testMinimizeStepDeviationFpid():
-    T = 1e-5
-    fKnee = 1e3
-    kp = 20
-    ki = 1000
-    kd = 0
-    Tdelay = 0*T
-    cycleFrequency = fKnee/10
-    delaySteps = int(Tdelay/T)
-    startingValue = 1
-    noiseDeviation = 1e-2
-    maxWalkSlope = 10*cycleFrequency
-    
-    minSetpoint = -5
-    maxSetpoint = 5
-    minOutput = -5
-    maxOutput = 5
-    maxRiseRate = (maxSetpoint - minSetpoint)*fKnee*2
-    
-    plantModel = ModelCollection([
-        RandomWalkNoise(T, maxWalkSlope, startingValue=startingValue),
-        GaussianNoise(noiseDeviation),
-        LPF(fKnee, T, startingValue=startingValue),
-        Delay(delaySteps, startingValue=startingValue)
-    ])
     pidModel = FPID(T=T, 
         maxRiseRate=maxRiseRate,
         minSetpoint=minSetpoint, 
         maxSetpoint=maxSetpoint,
         minOutput=minOutput,
         maxOutput=maxOutput,
-        kp=kp, ki=ki, kd=kd, model=plantModel)
+        kp=kp0, ki=ki0, kd=kd0, model=plantModel)
     tunableModel = TunableModel(pidModel)
-    
-    limits = {
-        "kpRange": (0, 100),
-        "kiRange": (0, 1000000),
-        "kdRange": (0, 100)
-    }
-    
     result = minimizeStepDeviationsPunishingOvershoot(
         tunableModel, 
         nCycles=5,
@@ -130,10 +103,7 @@ def testMinimizeStepDeviationFpid():
         **limits, 
         ncalls=200, 
         verbose=True)
-    
     print(result)
-
-    
 
 #TODO there should be a way of doing this with multiple inheritence (or maybe metaclasses)
 class TunableModel(Tunable):

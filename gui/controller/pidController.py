@@ -6,8 +6,9 @@ from collections import deque
 import time
 from typing import List, Tuple
 import numpy as np
-
-from . import analysis as analysis
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from algorithms import analysis as analysis
 from . import AbstractPidController
 
 """

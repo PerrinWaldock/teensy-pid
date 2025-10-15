@@ -1,12 +1,11 @@
 import time
 import matplotlib.pyplot as plt
-import argparse
 import numpy as np
 from tqdm import tqdm
 from random import random
 
 from .pidController import PidController
-from . import analysis
+from algorithms import analysis
 
 DEFAULT_RUNS = 0
 

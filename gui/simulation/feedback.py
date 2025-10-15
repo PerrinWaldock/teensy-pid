@@ -1,169 +1,18 @@
-"""
-what architecture is best?
-    fully functional?
-    object-oriented (pass in parameters, ask to simulate 100 points?)
-    time-based? frequency-based
-    
-TODO
-    create method that creates a model from a complex fourier spectrum + sample frequency
-"""
-import math
 import numpy as np
-from scipy.stats import norm
 from scipy.interpolate import interp1d
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections import deque
 from collections.abc import Callable
-from random import random
 
-class Model(ABC):
-    @abstractmethod
-    def next(self, input: float): pass
-    
-    @property
-    @abstractmethod
-    def inputs(self) -> list[float]: pass
-    
-    @property
-    @abstractmethod
-    def outputs(self) -> list[float]: pass
-    
-    @abstractmethod
-    def clear(self) -> None: pass
-    
-    def simulate(self, inputs: list[float]):
-        for input in inputs:
-            yield self.next(input)
-            
-class FunctionModel(Model):
-    #function takes full input history, full output history, generates next output
-    def __init__(self, fn: Callable[[list[float], list[float]], None], useLists=False):
-        self.fn = fn
-        self._inputs = deque()
-        self._outputs = deque()
-        if useLists:
-            self._inputs = list()
-            self._outputs = list()
-    
-    def next(self, input: float) -> float:
-        self._inputs.append(input)
-        self._outputs.append(self.fn(self._inputs, self._outputs))
-        return self._outputs[-1]
-    
-    def clear(self) -> None:
-        self._inputs = deque()
-        self._outputs = deque()
-
-    @property
-    def inputs(self) -> list[float]: return self._inputs
-    
-    @property
-    def outputs(self) -> list[float]: return self._outputs
-
-  
-class LPF(FunctionModel):
-    def __init__(self, fKnee: float, T: float, startingValue: float=0):
-        self.alpha = np.exp(-2*np.pi*T*fKnee)
-        def fn(inputs, outputs):
-            if len(outputs) > 0:
-                lastOutput = outputs[-1]
-            else:
-                lastOutput = startingValue
-            return self.alpha*lastOutput + (1 - self.alpha)*inputs[-1]
-        super().__init__(fn)
-
-class GaussianNoise(FunctionModel):
-    def __init__(self, deviation=0):
-        self.deviation = deviation
-        def fn(inputs, _):
-            return norm.rvs(scale=self.deviation, loc=inputs[-1], size=1)[0]
-        super().__init__(fn)
-
-class SinusoidalNoise(FunctionModel):
-    def __init__(self, amplitude, T, f):
-        self.t = 0
-        def fn(inputs, _):
-            self.t += T
-            return inputs[-1] + amplitude*np.sin(2*np.pi*f*self.t)
-        super().__init__(fn)
-    
-    @property
-    def adjustments(self) -> list[float]:
-        return np.array(self.outputs) - np.array(self.inputs)
-    
-class RandomWalkNoise(FunctionModel):
-    def __init__(self, T, maxSlope, startingValue=None):
-        maxStep = maxSlope*T
-        if startingValue is None:
-            startingValue = 0
-        self.offsets = deque()
-        def fn(inputs, outputs):
-            if len(outputs) > 1:
-                lastOffset = self.offsets[-1]
-            else:
-                lastOffset = 0
-            x = 2*random() - 1
-            offset = x*maxStep + lastOffset
-            self.offsets.append(offset)
-            return offset + inputs[-1]
-        super().__init__(fn)
-
-class CenteredRandomWalkNoise(FunctionModel):
-    def __init__(self, T, maxSlope, minValue, maxValue, startingValue=None):
-        maxStep = maxSlope*T
-        if startingValue is None:
-            startingValue = (maxValue + minValue)/2
-        self.offsets = deque()
-        def fn(inputs, outputs):
-            if len(self.offsets) > 0:
-                lastValue = self.offsets[-1]
-            else:
-                lastValue = startingValue
-            if len(outputs) > 1:
-                lastOutput = outputs[-1]
-            else:
-                lastOutput = 0
-            x = random() - 0.5
-            bias = (maxValue - lastValue)/(maxValue - minValue) - 0.5
-            offset = (x + bias)*maxStep + lastOutput
-            self.offsets.append(offset)
-            return offset + inputs[-1]
-        super().__init__(fn)
-
-#TODO test
-class Delay(FunctionModel):
-    def __init__(self, lag: int=0, startingValue: float=0):
-        self.lag = lag
-        self.startingValue = startingValue
-        
-        def fn(inputs, _):
-            if len(inputs) > self.lag:
-                return self.inputs[-1 - self.lag]
-            else:
-                return self.startingValue
-        super().__init__(fn, useLists=True)
-
-class ModelCollection(Model):
-    def __init__(self, models: list[Model]):
-        self.models = models
-    
-    def next(self, input: float):
-        for model in self.models:
-            input = model.next(input)
-        return input
-    
-    def clear(self) -> None:
-        for model in self.models:
-            model.clear()
-    
-    @property
-    def inputs(self) -> list[float]: return self.models[0].inputs
-    
-    @property
-    def outputs(self) -> list[float]: return self.models[-1].outputs
+from .model import Model
 
 class PidCalculator:
-    def __init__(self, kp: float, ki: float, kd: float, T=1, invertOutput=False):
+    def __init__(self, 
+                 kp: float, 
+                 ki: float, 
+                 kd: float, 
+                 T=1, 
+                 invertOutput=False):
         self.errors = deque()
         
         assert T > 0
@@ -217,7 +66,8 @@ class PidCalculator:
         self._lasterror = 0
 
 class PidCalculatorContainer:
-    def __init__(self, calculator: PidCalculator):
+    def __init__(self, 
+                 calculator: PidCalculator):
         self.calculator = calculator
     
     @property
@@ -251,7 +101,13 @@ class PidCalculatorContainer:
 
 class PID(Model, PidCalculatorContainer):
     # inputs are setpoints, outputs are outputs
-    def __init__(self, T: float, kp: float, ki: float, kd: float, model: Model):
+    def __init__(self, 
+                 T: float, 
+                 kp: float, 
+                 ki: float, 
+                 kd: float, 
+                 model: Model):
+        
         self._setpoints = deque()        
         self.model = model
         super().__init__(PidCalculator(kp, ki, kd, T=T))
@@ -282,7 +138,19 @@ class PID(Model, PidCalculatorContainer):
     def outputs(self) -> list[float]: return self.model.inputs
 
 class FPID(Model, PidCalculatorContainer):
-    def __init__(self, model: Model, minSetpoint: float, maxSetpoint: float, minOutput: float, maxOutput: float, maxRiseRate: float, T: float, kp: float, ki: float, kd: float, resolution: int=12, setpointTolerance: float=None):
+    def __init__(self, 
+                 model: Model, 
+                 minSetpoint: float, 
+                 maxSetpoint: float, 
+                 minOutput: float, 
+                 maxOutput: float, 
+                 maxRiseRate: float, 
+                 T: float, 
+                 kp: float, 
+                 ki: float, 
+                 kd: float, 
+                 resolution: int=12, 
+                 setpointTolerance: float=None):
         self._waitCycles = 0
         self.setpointTolerance = setpointTolerance
         if setpointTolerance is None:
@@ -383,6 +251,6 @@ class FPID(Model, PidCalculatorContainer):
         averagedControllerOutputs = sorted(measuredValues.keys())
         averagedControllerInputs = deque()
         for o in averagedControllerOutputs:
-            averagedControllerInputs.append(np.median(measuredValues[o])) #real controller uses mean
+            averagedControllerInputs.append(np.mean(measuredValues[o]))
 
         self.feedForwardModel = interp1d(averagedControllerInputs, averagedControllerOutputs)

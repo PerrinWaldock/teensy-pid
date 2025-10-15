@@ -1,13 +1,18 @@
 import numpy as np
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from controller import *
 import math
-
-from controller.models import PID, LPF, GaussianNoise, ModelCollection
 import pytest
 
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from controller import *
+from simulation.noise import *
+from simulation.filters import *
+from simulation.model import *
+from simulation.feedback import *
+
+def main():
+    test_spectrum_noise()
 
 def test_lpf():
     T = 1e-5
@@ -51,6 +56,31 @@ def test_random_walk_noise():
     plt.plot(ts, outputs)
     plt.show()
 
+def test_spectrum_noise():
+    # TODO create flat spectrum of noise
+    T = 1e-3
+    N = int(1/T)
+    spectrum = [1/(n+1) for n in range(N)]
+    inputs = [0]*N
+    ts = np.arange(len(inputs))/T
+    model = SpectrumNoise(spectrum)
+    outputs = list(model.simulate(inputs))
+    
+    #TODO delete .pyc files, add .pyc to gitignore
+    plt.figure()
+    plt.plot(ts, outputs)
+    plt.xlabel("time (s)")
+    plt.title("noise vs time")
+    plt.figure()
+    signalSpectrum = np.fft.rfft(outputs)
+    plt.plot(np.fft.rfftfreq(2*N-1, T), spectrum, label="desired spectrum")
+    plt.plot(np.fft.rfftfreq(len(outputs), T), np.abs(signalSpectrum), label="signal spectrum")
+    # plt.yscale("log")
+    plt.title("Noise Spectrum")
+    plt.xlabel("Frequency (Hz)")
+    plt.legend()
+    plt.show()
+
 #TODO random walk noise and biased random walk noise
 def test_centered_random_walk_noise():
     T = 1e-3
@@ -62,7 +92,6 @@ def test_centered_random_walk_noise():
     
     plt.plot(ts, outputs)
     plt.show()
-    
 
 def test_delay():
     T = 1e-5
@@ -108,4 +137,5 @@ def test_pid():
     #TODO add some sort of assert
     #TODO hook up a tuning algorithm to this virtual model
     
-    
+if __name__ == "__main__":
+    main()

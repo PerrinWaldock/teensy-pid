@@ -129,8 +129,6 @@ def ziegler_nichols(controller: Tunable, controlType: str, setPoint: float=1, n=
     def fitScore(ts, signal, fitfn):
         # score should be between 0 and 1, higher is better
         newTs = ts
-        #addedTs = np.diff(ts) + ts[:-1]
-        #newTs = np.array(sorted(list(ts) + list(addedTs))) #TODO interleave more efficiently
         newSignal = interp1d(ts, signal)(newTs)
         fittedSignal = fitfn(newTs)
         maxValue = max(max(newSignal), max(fittedSignal)) - min(min(newSignal), min(fittedSignal))
@@ -161,9 +159,6 @@ def ziegler_nichols(controller: Tunable, controlType: str, setPoint: float=1, n=
         (A, f, phase, offset, gamma) = ps
         scoreOfFit = fitScore(ts, signal, lambda t: sinusoid(t, *ps))
         score = scoreOfFit/(np.abs(gamma) + 1e-4)
-        # plt.plot(signal)
-        # plt.plot(sinusoid(ts, *ps))
-        # plt.show()
         return score, 1/f
     
     def getOscillationScore(kp):
@@ -189,7 +184,6 @@ def ziegler_nichols(controller: Tunable, controlType: str, setPoint: float=1, n=
                       verbose=True)
         return result.x[0]
     
-    # print(getOscillationScore(31.836)) # TODO remove
     kp = findUltimateGain(kpMax=kpMax)
     score, t = getOscillationScore(kp)
     
@@ -199,18 +193,12 @@ def ziegler_nichols(controller: Tunable, controlType: str, setPoint: float=1, n=
     plotResult(controller, result, np.array([0] + [setPoint]*n))
     return result
 
-# TODO some sort step response tuning
-
-#TODO increase the power for the RMS to see if it more harshly punishes overshoot
-#TODO add maximum slew rate, output limits to the FPID (realistic). Skip PID for n cycles if expected output will take n cycles to change.
-#TODO read literature on tuning functions
-
 def minimizeStepDeviationsPunishingOvershoot(controller: Tunable, nCycles: int=5, cycleFrequency: float=10, ncalls: int=200, kpRange=None, kiRange=None, kdRange=None, firstSetPoint: float=0, secondSetPoint: float=1, verbose: bool=False):
     stepSamples = int(round(0.5/(cycleFrequency*controller.T)))
     inputs = np.tile([firstSetPoint]*stepSamples + [secondSetPoint]*stepSamples, nCycles)
     calculateScore = generateCalculateScore(controller=controller,
                                             inputs=inputs,
-                                            scoreCalculation=lambda i, f: punishOvershoot(i, f, overshootfn=lambda x: rmp(x, 2)**(1 + max(np.abs(x)))))
+                                            scoreCalculation=lambda i, f: punishOvershoot(i, f, overshootfn=lambda x: rmp(x, 2)**(1 + 2*max(np.abs(x)))))
     result = runGpMinimizeTuning(controller=controller,
                                calculateScore=calculateScore,
                                ncalls=ncalls,
@@ -292,8 +280,6 @@ def runGpMinimizeTuning(controller: Tunable, calculateScore: callable, ncalls: i
                                             kd=kdRange is not None)
     
     def getScore(*args):
-        # if any(np.isnan(x) for x in args[0]):
-        #     return sys.float_info.max
         if verbose:
             print(f"parameters: {args}")
         retuneFunction(*args)
@@ -310,7 +296,7 @@ def runGpMinimizeTuning(controller: Tunable, calculateScore: callable, ncalls: i
                       limits,
                       n_calls=ncalls,
                       verbose=True,
-                      n_points=100,
+                      n_points=200,
                       n_initial_points=ncalls//2)
     params = list(res.x)
     retuneFunction(params)
@@ -347,15 +333,13 @@ def createRetuneFunction(controller, kp=False, ki=False, kd=False):
             controller.kd = ps.pop(0)
     return retune
 
-
 def rmp(x: list[float], p: int) -> float:
     return np.sqrt(np.mean(x**p))
 
 def rms(x: list[float]) -> float:
     return rmp(x, 2)
 
-def punishOvershoot(desired, actual, overshootfn=lambda x: rmp(x,4), undershootfn=lambda x: rmp(x, 2)):
-    #overshoot options: rmp(x,2)**(1 + max(x)), rmp(x,4)
+def punishOvershoot(desired, actual, overshootfn=lambda x: rmp(x,2)**(1 + max(np.abs(x))), undershootfn=lambda x: rmp(x, 2)):
     underPoints = deque()
     overPoints = deque()
     for d, a in zip(desired, actual):
